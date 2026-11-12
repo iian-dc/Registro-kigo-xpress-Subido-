@@ -47,7 +47,7 @@ body{background:#f5f5f5;zoom:0.88}
 <div class="top"><div style="display:flex;gap:10px;align-items:center"><button class="btn-x" onclick="location.href='admin.html'">✕</button><div><div class="logo-text">Kigo <span class="red">X</span>press</div><div class="logo-sub">LA SOLUCIÓN A TU ALCANCE</div></div></div><div class="total-ped" id="totalPed">Total: 0</div></div>
 <div class="main">
 <div class="head-sec"><div><h1 style="font-size:14px;font-weight:800">Historial de pedidos</h1><p style="font-size:11px;color:#6b7280">Valor = servicio | Pago = tarifa congelada por pedido</p></div><button class="btn-buscar" style="background:#fff;color:#111;border:1px solid #e5e7eb" onclick="location.reload()">Actualizar</button></div>
-<div class="filters"><div class="inp-f"><input type="date" id="fIni"><input type="date" id="fFin" style="margin-left:4px;border-left:1px solid #eee;padding-left:6px"></div><div class="inp-f"><select id="fMes"><option value="">Mes</option><option value="1">Enero</option><option value="2">Feb</option><option value="3">Mar</option><option value="4">Abr</option><option value="5">May</option><option value="6">Jun</option><option value="7">Jul</option><option value="8">Ago</option><option value="9">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dic</option></select></div><div class="search-box"><input id="fBuscar" placeholder="Buscar aliado..."></div><button class="btn-buscar" onclick="aplicarFiltros()">Buscar</button></div>
+<div class="filters"><div class="inp-f"><input type="date" id="fIni"><input type="date" id="fFin" style="margin-left:4px;border-left:1px solid #eee;padding-left:6px"></div><div class="inp-f"><select id="fMes"><option value="">Mes</option><option value="1">Enero</option><option value="2">Feb</option><option value="3">Mar</option><option value="4">Abr</option><option value="5">May</option><option value="6">Jun</option><option value="7">Jul</option><option value="8">Ago</option><option value="9">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dic</option></select></div><div class="inp-f"><select id="fRepartidor"><option value="">Todos los repartidores</option></select></div><div class="search-box"><input id="fBuscar" placeholder="Buscar aliado..."></div><button class="btn-buscar" onclick="aplicarFiltros()">Buscar</button></div>
 <div class="aviso-slide">← Desliza para ver más →</div>
 <div class="table-wrap" id="wrapTabla"><table class="table"><thead><tr><th>Fecha</th><th>N° Pedido</th><th>Aliado</th><th>Servicio</th><th>Repartidor</th><th>Valor</th><th>Pago</th><th>Total</th><th>¿Ya pagó?</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="tbody"></tbody></table><div class="footer-table"><span id="footerInfo">0 pedidos</span><div class="pag"><button onclick="cambiarPag(-1)">‹</button><button class="active" id="pagNum">1</button><button onclick="cambiarPag(1)">›</button></div></div></div>
 </div>
@@ -66,16 +66,33 @@ db.ref('repartidores').on('value', snap=>{
     const key=(r.nombre||'').toLowerCase().trim();
     if(key) repartidoresMap[key]=r;
   });
+  poblarFiltroRepartidor();
   if(ventas.length>0) render();
 });
 
+// NUEVO - LLENAR FILTRO DE REPARTIDOR
+function poblarFiltroRepartidor(){
+  const sel = document.getElementById('fRepartidor');
+  if(!sel) return;
+  const valorActual = sel.value;
+  const nombres = new Set();
+  // 1. De la lista de repartidores registrados
+  Object.values(repartidoresMap).forEach(r=>{
+    if(r.nombre) nombres.add(r.nombre.trim());
+  });
+  // 2. De los pedidos que ya existen, por si hay alguno que no está en repartidores
+  ventas.forEach(v=>{
+    if(v.repartidor) nombres.add(String(v.repartidor).trim());
+  });
+  const lista = Array.from(nombres).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+  sel.innerHTML = '<option value="">Todos los repartidores</option>' + lista.map(n=>`<option value="${n}">${n}</option>`).join('');
+  if(lista.includes(valorActual)) sel.value = valorActual;
+}
+
 function getTarifaCongelada(v){
-  // 1. Si el pedido ya tiene tarifaCongelada guardada, usar esa (no cambia nunca)
   if(v.tarifaCongelada!=null && v.tarifaCongelada!=='') return parseInt(v.tarifaCongelada);
-  // 2. Si ya estaba pagado, usar el pago que ya tenía
   if(v.pago>0) return parseInt(v.pago);
   if(v.descuento>0) return parseInt(v.descuento);
-  // 3. Si es pedido viejo sin tarifa guardada, default 5 y 10
   const esTrans=(v.tipo||'').toLowerCase().includes('trans');
   return esTrans?10:5;
 }
@@ -110,13 +127,16 @@ db.ref('ventas').on('value', snap=>{
  });
  lista.forEach((item, idx)=>{ item.numeroSecuencial = idx+1; });
  ventas = [...lista].reverse();
+ poblarFiltroRepartidor();
  if(primeraCarga){
    filtradas=[...ventas];
    primeraCarga=false;
  }else{
    const ini=fIni.value, fin=fFin.value, mes=fMes.value, bus=fBuscar.value.toLowerCase().trim();
+   const repFiltro = (document.getElementById('fRepartidor')?.value || '').toLowerCase().trim();
    filtradas=ventas.filter(v2=>{
     if(bus &&!(v2.cliente||'').toLowerCase().includes(bus)) return false;
+    if(repFiltro && (v2.repartidor||'').toLowerCase().trim() !== repFiltro) return false;
     if(mes){ if(!v2.fecha) return false; if(parseInt(v2.fecha.split('-')[1])!==parseInt(mes)) return false; }
     if(ini && v2.fecha < ini) return false; if(fin && v2.fecha > fin) return false; return true;
    });
@@ -128,8 +148,10 @@ db.ref('ventas').on('value', snap=>{
 
 function aplicarFiltros(){
  const ini=fIni.value, fin=fFin.value, mes=fMes.value, bus=fBuscar.value.toLowerCase().trim();
+ const repFiltro = (document.getElementById('fRepartidor')?.value || '').toLowerCase().trim();
  filtradas=ventas.filter(v=>{
   if(bus &&!(v.cliente||'').toLowerCase().includes(bus)) return false;
+  if(repFiltro && (v.repartidor||'').toLowerCase().trim() !== repFiltro) return false;
   if(mes){ if(!v.fecha) return false; if(parseInt(v.fecha.split('-')[1])!==parseInt(mes)) return false; }
   if(ini && v.fecha < ini) return false; if(fin && v.fecha > fin) return false; return true;
  });
@@ -146,7 +168,6 @@ function togglePago(id){
  if(isSi){
    db.ref('ventas/'+id).update({yaPago:false, estado:'Debe', total:0});
  }else{
-   // Al pagar, congelamos la tarifa para que no cambie nunca más
    db.ref('ventas/'+id).update({yaPago:true, estado:'Pagado', pago:cobro, descuento:cobro, total:cobro, tarifaCongelada:cobro});
  }
  setTimeout(()=>{ document.getElementById('wrapTabla').scrollLeft=scrollLeft; window.scrollTo(0,scrollY); },50);
