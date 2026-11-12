@@ -12,14 +12,16 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Manrope',sans-serif}
 body{background:#f6f7f9}
-.top{max-width:1100px;margin:0 auto;padding:16px;display:flex;justify-content:space-between;align-items:center}
+.top{max-width:1100px;margin:0 auto;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.top-info{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.top-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .cards{max-width:1100px;margin:10px auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;padding:0 16px}
 .card{background:#fff;border:1px solid #eef0f3;border-radius:16px;padding:18px}
 .card b{font-size:24px;display:block;margin-top:6px}
 .card small{color:#6b7280;font-size:11px;font-weight:800}
 .profile{max-width:1100px;margin:0 auto;padding:0 16px;display:grid;grid-template-columns:320px 1fr;gap:12px}
 @media(max-width:800px){.profile{grid-template-columns:1fr}}
-.avatar{width:90px;height:90px;border-radius:20px;background:#eee;object-fit:cover}
+.avatar{width:90px;height:90px;border-radius:20px;background:#eee;object-fit:cover;flex-shrink:0}
 .table{width:100%;border-collapse:collapse;margin-top:12px}
 .table th{font-size:10px;color:#6b7280;text-align:left;padding:8px;border-bottom:1px solid #eef0f3}
 .table td{font-size:12px;padding:10px 8px;border-bottom:1px solid #f3f4f6;font-weight:700}
@@ -34,16 +36,32 @@ body{background:#f6f7f9}
 .modal.open{display:block;transform:translate(-50%,-50%) scale(1)}
 .gasto-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f3f4f6}
 .gasto-item:last-child{border:none}
+/* SOLO AJUSTE CELULAR - PANEL MAS COMPACTO Y ORGANIZADO */
+@media(max-width:600px){
+  .top{padding:10px 12px;gap:10px}
+  .top-info{gap:10px}
+  .avatar{width:56px;height:56px;border-radius:14px}
+  .top-actions{width:100%}
+  .top-actions select{flex:1;min-width:0}
+  .top-actions button{flex:1;justify-content:center;padding:0 10px;font-size:11px;white-space:nowrap}
+  .cards{grid-template-columns:1fr 1fr;gap:8px;padding:0 12px;margin:6px auto}
+  .card{padding:12px 10px;border-radius:14px}
+  .card b{font-size:18px;margin-top:4px}
+  .card small{font-size:9.5px;line-height:1.3}
+  .profile{padding:0 12px;gap:8px}
+  .table td{font-size:11px;padding:8px 6px}
+  .table th{padding:6px}
+}
 </style>
 </head>
 <body>
 
 <div class="top">
-  <div style="display:flex;align-items:center;gap:12px">
+  <div class="top-info">
     <img id="pAvatar" class="avatar" src="https://cdn-icons-png.flaticon.com/512/1077/1077114.png">
-    <div><b id="pNombre" style="font-size:18px">Cargando...</b><p style="font-size:11px;color:#6b7280" id="pMoto"></p><p style="font-size:11px;color:#6b7280" id="pUsuario"></p></div>
+    <div style="min-width:0"><b id="pNombre" style="font-size:18px">Cargando...</b><p style="font-size:11px;color:#6b7280" id="pMoto"></p><p style="font-size:11px;color:#6b7280" id="pUsuario"></p></div>
   </div>
-  <div style="display:flex;align-items:center;gap:8px">
+  <div class="top-actions">
     <select id="filtroMes" onchange="renderStats()" style="height:38px;border:1px solid #e5e7eb;border-radius:10px;padding:0 12px;font-weight:800;font-size:12px"><option value="todos">Todos los meses</option></select>
     <button onclick="openConfig()" style="height:38px;padding:0 14px;border:1px solid #111;background:#111;color:#fff;border-radius:10px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px"><span class="material-icons" style="font-size:18px">settings</span> Configuración</button>
     <button onclick="logout()" style="height:38px;padding:0 14px;border:1px solid #e5e7eb;background:#fff;border-radius:10px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px"><span class="material-icons">logout</span> Salir</button>
@@ -204,6 +222,27 @@ function cargarGastos(){
   });
 }
 
+// NUEVO - FORMATO AÑO + NOMBRE MES: 2026-01 -> 2026 - Enero
+const MESES_NOMBRE = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function formatoMesAnio(mesKey){
+  if(!mesKey || mesKey==='todos') return 'Todos los meses';
+  const partes = String(mesKey).split('-');
+  if(partes.length!==2) return mesKey;
+  const anio = partes[0];
+  const mesNum = parseInt(partes[1]);
+  const nombre = MESES_NOMBRE[mesNum-1] || partes[1];
+  return anio + ' - ' + nombre;
+}
+function formatoMesAnioCorto(mesKey){
+  if(!mesKey || mesKey==='todos') return 'Todos los meses';
+  const partes = String(mesKey).split('-');
+  if(partes.length!==2) return mesKey;
+  const anio = partes[0];
+  const mesNum = parseInt(partes[1]);
+  const nombre = MESES_NOMBRE[mesNum-1] || partes[1];
+  return nombre + ' ' + anio;
+}
+
 function initFiltroMes(){
   const meses=[...new Set([...ventasAll.map(v=>v._mes), ...gastosAll.map(g=>g._mes)])].filter(Boolean).sort().reverse();
   const sel=document.getElementById('filtroMes');
@@ -211,7 +250,7 @@ function initFiltroMes(){
   sel.innerHTML='<option value="todos">Todos los meses</option>';
   meses.forEach(m=>{
     const op=document.createElement('option');
-    op.value=m; op.textContent=m;
+    op.value=m; op.textContent=formatoMesAnio(m);
     sel.appendChild(op);
   });
   if(actual) sel.value=actual;
@@ -244,12 +283,12 @@ function renderStats(){
   document.getElementById('debeDet').innerText=mandados+' mandados x $5 / '+transportes+' transportes x $10';
   document.getElementById('pagado').innerText=fmt(pagado);
   document.getElementById('totalServ').innerText=lista.length.toLocaleString('es-MX');
-  document.getElementById('mesDet').innerText= mesSel==='todos'? lista.length+' total' : lista.length+' en '+mesSel;
+  document.getElementById('mesDet').innerText= mesSel==='todos'? lista.length+' total' : lista.length+' en '+formatoMesAnioCorto(mesSel);
   document.getElementById('ingresosTotales').innerText=fmt(ingresos);
   document.getElementById('gastosTotales').innerText=fmt(gastos);
   document.getElementById('gastosDet').innerText=listaG.length+' gastos en filtro';
   document.getElementById('totalFinal').innerText=fmt(totalFinal);
-  document.getElementById('pIngMes').innerText='Ingresos mes ('+mesSel+'): '+fmt(ingresos)+' - Gastos '+fmt(gastos)+' = '+fmt(totalFinal);
+  document.getElementById('pIngMes').innerText='Ingresos mes ('+formatoMesAnioCorto(mesSel)+'): '+fmt(ingresos)+' - Gastos '+fmt(gastos)+' = '+fmt(totalFinal);
   document.getElementById('totalListaGastos').innerText=fmt(gastos);
 
   const tbody=document.getElementById('tablaMis'); tbody.innerHTML='';
@@ -329,7 +368,8 @@ function pagarWA(){
   const gastos=document.getElementById('gastosTotales').innerText;
   const total=document.getElementById('totalFinal').innerText;
   const mes=document.getElementById('filtroMes').value;
-  const msg=`Hola Kigo, soy ${repartidorActual.nombre}. Mes: ${mes}. Deuda ${debe} - ${det}. Ingresos: ${ing}, Gastos: ${gastos}, Me queda: ${total}.`;
+  const mesTexto = formatoMesAnioCorto(mes);
+  const msg=`Hola Kigo, soy ${repartidorActual.nombre}. Mes: ${mesTexto}. Deuda ${debe} - ${det}. Ingresos: ${ing}, Gastos: ${gastos}, Me queda: ${total}.`;
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,'_blank');
 }
 
