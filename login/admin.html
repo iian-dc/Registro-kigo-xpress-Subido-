@@ -53,6 +53,23 @@
 .menu-foot{padding:10px;border-top:1px solid #f0f0f0}
 .suggest{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #ddd;border-radius:14px;margin-top:5px;z-index:20;max-height:160px;overflow:auto;display:none;box-shadow:0 8px 24px rgba(0,0,0,.1)}
 .s-item{padding:10px 14px;cursor:pointer;border-bottom:1px solid #f3f3f3;font-size:13px}
+/* ===== ADAPTABLE CELULAR Y COMPUTADORA - SOLO ESTO SE AGREGÓ ===== */
+@media (min-width: 768px){
+  .top{height:60px;padding:0 24px;max-width:1100px;margin:0 auto}
+  .wrap{max-width:760px;padding:12px 28px 32px}
+  .title{font-size:38px;margin:14px 0 20px}
+  .lbl{font-size:14px;margin:16px 0 6px}
+  .inp{padding:13px 40px 13px 16px;font-size:15px}
+  .btn-tipo{height:52px;font-size:14px}
+  .btn-reg{padding:16px;font-size:16px}
+  .menu{width:300px}
+}
+@media (min-width: 1024px){
+  .wrap{max-width:900px;padding:16px 32px 40px}
+  .title{font-size:42px}
+  .total{padding:14px 18px}
+  .total-val{font-size:24px}
+}
 </style>
 </head>
 <body>
@@ -141,7 +158,15 @@ function calcTotal(){ let p=parseFloat(document.getElementById('precio').value)|
 document.getElementById('fechaVenta').value=new Date().toISOString().split('T')[0];
 let ventasCache=[], clientesDB={}, repartidoresDB={};
 function getTarifa(nombre, tipo){ const e=Object.values(repartidoresDB).find(r=>r.nombre===nombre); if(!e) return null; return tipo==='moto'?parseFloat(e.tarifaM)||5:parseFloat(e.tarifaT)||80; }
-function refreshReps(){ const sel=document.getElementById('repartidor'); const lista=Object.values(repartidoresDB).map(r=>r.nombre); const u=[...new Set(lista)]; sel.innerHTML='<option value="">Seleccionar repartidor</option>'+u.map(r=>`<option value="${r}">${r}</option>`).join(''); }
+// SOLO REPARTIDORES ACTIVOS - acepta activo / estado / status en cualquier forma
+function esActivo(r){
+  if(!r) return false;
+  var v = (r.activo!==undefined ? r.activo : (r.estado!==undefined ? r.estado : (r.status!==undefined ? r.status : (r.activoStatus!==undefined ? r.activoStatus : true))));
+  if(typeof v==='string'){ v=v.toLowerCase().trim(); return v==='true'||v==='activo'||v==='active'||v==='1'||v==='si'||v==='sí'; }
+  if(typeof v==='number') return v===1;
+  return v===true;
+}
+function refreshReps(){ const sel=document.getElementById('repartidor'); const lista=Object.values(repartidoresDB).filter(esActivo).map(r=>r.nombre).filter(Boolean); const u=[...new Set(lista)]; sel.innerHTML='<option value="">Seleccionar repartidor</option>'+u.map(r=>`<option value="${r}">${r}</option>`).join(''); }
 db.ref('clientes').on('value',s=>{ clientesDB=s.val()||{}; });
 db.ref('repartidores').on('value',s=>{ repartidoresDB=s.val()||{}; refreshReps(); });
 db.ref('clientes').on('value',s=>{ clientesDB=s.val()||{}; });
