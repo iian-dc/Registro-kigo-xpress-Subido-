@@ -24,17 +24,31 @@ body{background:#f6f7f9;padding:14px;zoom:0.9}
 @media(max-width:950px){.wrap3{grid-template-columns:1fr}}
 .chart-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .chart-head h3{font-size:13px;display:flex;align-items:center;gap:6px}
-.chart-filtros{display:flex;gap:6px;align-items:center}
+.chart-filtros{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .chart-filtros select{height:32px;font-size:11px;padding:0 8px;border-radius:10px;border:1px solid #e5e7eb;font-weight:800;background:#fff}
 .avatar{width:40px;height:40px;border-radius:12px;object-fit:cover;background:#eee}
+@media(max-width:600px){
+  body{padding:10px 12px;zoom:1}
+  .top{padding:12px;gap:10px}
+  .top>div:last-child{width:100%;border-top:1px solid #eef0f3;padding-top:10px}
+  .cards{grid-template-columns:1fr 1fr;gap:8px;margin:10px auto}
+  .card{padding:12px 10px;border-radius:14px}
+  .card b{font-size:18px}
+  .card small{font-size:9.5px;line-height:1.3}
+  .wrap3{grid-template-columns:1fr;gap:8px}
+  .chart-head{flex-direction:column;align-items:flex-start}
+  .chart-filtros{width:100%}
+  .chart-filtros select{flex:1;min-width:0}
+  canvas{max-height:240px}
+}
 </style>
 </head>
 <body>
 
 <div class="top">
-  <div style="display:flex;align-items:center;gap:12px">
-    <button class="btn-x" onclick="volverPanel()"><span class="material-icons" style="font-size:18px">close</span></button>
-    <div><h1 style="font-size:18px;font-weight:800;display:flex;align-items:center;gap:6px"><span class="material-icons">bar_chart</span> Estadísticas</h1><p style="font-size:11px;color:#6b7280" id="pNombreTop">Panel del repartidor</p></div>
+  <div style="display:flex;align-items:center;gap:12px;min-width:0">
+    <button class="btn-x" onclick="location.href='panel-repa.html'"><span class="material-icons" style="font-size:18px">close</span></button>
+    <div style="min-width:0"><h1 style="font-size:18px;font-weight:800;display:flex;align-items:center;gap:6px"><span class="material-icons">bar_chart</span> Estadísticas</h1><p style="font-size:11px;color:#6b7280" id="pNombreTop">Panel del repartidor</p></div>
   </div>
   <div style="display:flex;align-items:center;gap:10px">
     <img id="pAvatar" class="avatar" src="https://cdn-icons-png.flaticon.com/512/1077/1077114.png">
@@ -50,17 +64,17 @@ body{background:#f6f7f9;padding:14px;zoom:0.9}
 
 <div class="wrap3">
   <div class="card" style="min-width:0">
-    <div class="chart-head"><h3><span class="material-icons">payments</span> Mis ingresos por mes</h3><div class="chart-filtros"><select id="mesIngresos" onchange="renderIngresos()"><option value="todos">Todos los meses</option><option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option><option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option><option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select><select id="yearIngresos" onchange="renderIngresos()"><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option></select></div></div>
+    <div class="chart-head"><h3><span class="material-icons">payments</span> Mis ingresos por mes</h3><div class="chart-filtros"><select id="mesIngresos" onchange="renderIngresos()"><option value="todos">Todos los meses</option><option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option><option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option><option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select><select id="yearIngresos" onchange="renderIngresos()"><option value="todos" selected>Todos los años</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option></select></div></div>
     <canvas id="chartIngresos" height="260"></canvas>
     <p style="font-size:11px;color:#6b7280;margin-top:8px">Ganancia: lo que pagó el cliente menos la tarifa Kigo.</p>
   </div>
   <div class="card" style="min-width:0">
-    <div class="chart-head"><h3><span class="material-icons">two_wheeler</span> Mis envíos por mes</h3><div class="chart-filtros"><select id="yearEnvios" onchange="renderEnvios()"><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option></select></div></div>
+    <div class="chart-head"><h3><span class="material-icons">two_wheeler</span> Mis envíos por mes</h3><div class="chart-filtros"><select id="yearEnvios" onchange="renderEnvios()"><option value="todos" selected>Todos los años</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option></select></div></div>
     <canvas id="chartEnvios" height="260"></canvas>
     <p style="font-size:11px;color:#6b7280;margin-top:8px">Cuántos mandados y transportes hiciste cada mes.</p>
   </div>
   <div class="card" style="min-width:0">
-    <div class="chart-head"><h3><span class="material-icons">receipt_long</span> Mis gastos por mes</h3><div class="chart-filtros"><select id="mesGastos" onchange="renderGastos()"><option value="todos">Todos los meses</option><option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option><option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option><option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select><select id="yearGastos" onchange="renderGastos()"><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option></select></div></div>
+    <div class="chart-head"><h3><span class="material-icons">receipt_long</span> Mis gastos por mes</h3><div class="chart-filtros"><select id="mesGastos" onchange="renderGastos()"><option value="todos">Todos los meses</option><option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option><option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option><option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select><select id="yearGastos" onchange="renderGastos()"><option value="todos" selected>Todos los años</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option></select></div></div>
     <canvas id="chartGastos" height="260"></canvas>
     <p style="font-size:11px;color:#6b7280;margin-top:8px">Cuánto gastaste cada mes en gasolina y demás.</p>
   </div>
@@ -72,21 +86,23 @@ firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 let repartidorActual=null;
 let repartidorKey=localStorage.getItem('kigo_repa_key');
-let repartidorNombre=localStorage.getItem('kigo_repa_nombre');
+let repartidorNombre=localStorage.getItem('kigo_repa_nombre') || localStorage.getItem('kigo_nombre') || localStorage.getItem('kigo_repa_usuario') || '';
 if(!repartidorKey && !repartidorNombre){
   alert('Debes iniciar sesión desde el login');
   window.location.href='index.html';
 }
-function volverPanel(){
-  if(document.referrer && document.referrer.indexOf('panel')!==-1){ history.back(); return; }
-  if(window.history.length>1){ history.back(); return; }
-  window.location.href='panel-repa.html';
+// Si no hay registro en repartidores, igual entrar con el nombre guardado para no quedarse en cero / cargando
+function entrarConNombreGuardado(){
+  if(!repartidorActual && repartidorNombre){
+    repartidorActual={ nombre: repartidorNombre };
+  }
+  if(repartidorActual) iniciar();
 }
 if(repartidorKey){
   db.ref('repartidores/'+repartidorKey).once('value', s=>{
     if(s.val()){ repartidorActual=s.val(); iniciar(); }
     else buscarPorNombre();
-  });
+  }).catch(function(){ entrarConNombreGuardado(); });
 } else { buscarPorNombre(); }
 function buscarPorNombre(){
   db.ref('repartidores').once('value', snap=>{
@@ -96,7 +112,8 @@ function buscarPorNombre(){
       if((r.nombre||'').toLowerCase()===(repartidorNombre||'').toLowerCase()){ repartidorActual=r; repartidorKey=k; }
     });
     if(repartidorActual) iniciar();
-  });
+    else entrarConNombreGuardado();
+  }).catch(function(){ entrarConNombreGuardado(); });
 }
 function iniciar(){
   document.getElementById('pNombre').innerText=repartidorActual.nombre||'Repartidor';
@@ -128,8 +145,8 @@ function cargarVentas(){
     const data=snap.val()||{};
     const nombre=(repartidorActual.nombre||'').toLowerCase();
     ventasAll=Object.values(data).filter(v=>{
-      const rep=(v.repartidor||v.nombreRepartidor||'').toLowerCase();
-      return rep===nombre || rep.includes(nombre);
+      const rep=(v.repartidor||v.nombreRepartidor||v.nombre||'').toLowerCase();
+      return rep===nombre || rep.includes(nombre) || nombre.includes(rep);
     }).map(v=>{
       let raw=(v.tipoServicio||v.servicio||v.tipo||'').toString().toLowerCase();
       let esTrans=raw.includes('trans');
@@ -151,52 +168,68 @@ function cargarGastos(){
   });
 }
 function fmt(n){ return '$'+Number(n).toLocaleString('es-MX'); }
+function filtrarPorYear(lista, yearSel, campoFecha){
+  if(yearSel==='todos') return lista.slice();
+  return lista.filter(function(v){ return (v[campoFecha]||'').indexOf(yearSel)===0; });
+}
 function renderIngresos(){
   var mesSel=document.getElementById('mesIngresos').value;
   var yearSel=document.getElementById('yearIngresos').value;
-  var base=ventasAll.filter(function(v){ return v._fecha.indexOf(yearSel)===0; });
+  var base=filtrarPorYear(ventasAll, yearSel, '_fecha');
   var meses=[];
   if(mesSel!=='todos'){
-    var clave=yearSel+'-'+mesSel;
-    base=base.filter(function(v){ return v._mes===clave; });
-    meses=[clave];
+    if(yearSel==='todos'){
+      base=base.filter(function(v){ return v._mes.slice(5,7)===mesSel; });
+      base.forEach(function(v){ if(meses.indexOf(v._mes)===-1) meses.push(v._mes); });
+    } else {
+      var clave=yearSel+'-'+mesSel;
+      base=base.filter(function(v){ return v._mes===clave; });
+      meses=[clave];
+    }
+    meses.sort();
   } else {
     base.forEach(function(v){ if(meses.indexOf(v._mes)===-1) meses.push(v._mes); }); meses.sort();
   }
   var datos=meses.map(function(m){ var s=0; base.forEach(function(v){ if(v._mes===m) s+=v._ganancia; }); return s; });
   var total=0; datos.forEach(function(x){ total+=x; });
   document.getElementById('totalIngresos').innerText=fmt(total);
-  document.getElementById('totalIngresosDet').innerText=(mesSel==='todos'?'Todos los meses de ':'Mes ')+yearSel+' - '+base.length+' servicios';
+  document.getElementById('totalIngresosDet').innerText=(mesSel==='todos'?'Todos los meses de ':'Mes ')+(yearSel==='todos'?'todos los años':yearSel)+' - '+base.length+' servicios';
   if(chartIngresos) chartIngresos.destroy();
   if(meses.length) chartIngresos=new Chart(document.getElementById('chartIngresos'), { type:'bar', data:{ labels:meses, datasets:[{ label:'Ganancia', data:datos, backgroundColor:'#16a34a', borderRadius:6, maxBarThickness:44 }] }, options:{ responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } } });
 }
 function renderEnvios(){
   var yearSel=document.getElementById('yearEnvios').value;
-  var base=ventasAll.filter(function(v){ return v._fecha.indexOf(yearSel)===0; });
+  var base=filtrarPorYear(ventasAll, yearSel, '_fecha');
   var meses=[]; base.forEach(function(v){ if(meses.indexOf(v._mes)===-1) meses.push(v._mes); }); meses.sort();
   var mandados=meses.map(function(m){ var c=0; base.forEach(function(v){ if(v._mes===m && !v._esTrans) c++; }); return c; });
   var transportes=meses.map(function(m){ var c=0; base.forEach(function(v){ if(v._mes===m && v._esTrans) c++; }); return c; });
   document.getElementById('totalEnvios').innerText=base.length;
-  document.getElementById('totalEnviosDet').innerText='En '+yearSel+' - '+mandados.reduce(function(a,b){return a+b;},0)+' mandados / '+transportes.reduce(function(a,b){return a+b;},0)+' transportes';
+  document.getElementById('totalEnviosDet').innerText='En '+(yearSel==='todos'?'todos los años':yearSel)+' - '+mandados.reduce(function(a,b){return a+b;},0)+' mandados / '+transportes.reduce(function(a,b){return a+b;},0)+' transportes';
   if(chartEnvios) chartEnvios.destroy();
   if(meses.length) chartEnvios=new Chart(document.getElementById('chartEnvios'), { type:'bar', data:{ labels:meses, datasets:[{ label:'Mandados', data:mandados, backgroundColor:'#E10600', borderRadius:4, maxBarThickness:18 },{ label:'Transportes', data:transportes, backgroundColor:'#f59e0b', borderRadius:4, maxBarThickness:18 }] }, options:{ responsive:true, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } } }, scales:{ y:{ beginAtZero:true }, x:{ grid:{ display:false } } } });
 }
 function renderGastos(){
   var mesSel=document.getElementById('mesGastos').value;
   var yearSel=document.getElementById('yearGastos').value;
-  var base=gastosAll.filter(function(g){ return (g.fecha||'').indexOf(yearSel)===0 || (g._mes||'').indexOf(yearSel)===0; });
+  var base=gastosAll.filter(function(g){ if(yearSel==='todos') return true; return (g.fecha||'').indexOf(yearSel)===0 || (g._mes||'').indexOf(yearSel)===0; });
   var meses=[];
   if(mesSel!=='todos'){
-    var clave=yearSel+'-'+mesSel;
-    base=base.filter(function(g){ return g._mes===clave; });
-    meses=[clave];
+    if(yearSel==='todos'){
+      base=base.filter(function(g){ return g._mes.slice(5,7)===mesSel; });
+      base.forEach(function(g){ if(g._mes && meses.indexOf(g._mes)===-1) meses.push(g._mes); });
+    } else {
+      var clave=yearSel+'-'+mesSel;
+      base=base.filter(function(g){ return g._mes===clave; });
+      meses=[clave];
+    }
+    meses.sort();
   } else {
     base.forEach(function(g){ if(g._mes && meses.indexOf(g._mes)===-1) meses.push(g._mes); }); meses.sort();
   }
   var datos=meses.map(function(m){ var s=0; base.forEach(function(g){ if(g._mes===m) s+=parseFloat(g.monto||0); }); return s; });
   var total=0; datos.forEach(function(x){ total+=x; });
   document.getElementById('totalGastos').innerText=fmt(total);
-  document.getElementById('totalGastosDet').innerText=(mesSel==='todos'?'Todos los meses de ':'Mes ')+yearSel+' - '+base.length+' gastos';
+  document.getElementById('totalGastosDet').innerText=(mesSel==='todos'?'Todos los meses de ':'Mes ')+(yearSel==='todos'?'todos los años':yearSel)+' - '+base.length+' gastos';
   if(chartGastos) chartGastos.destroy();
   if(meses.length) chartGastos=new Chart(document.getElementById('chartGastos'), { type:'bar', data:{ labels:meses, datasets:[{ label:'Gastos', data:datos, backgroundColor:'#ef4444', borderRadius:6, maxBarThickness:44 }] }, options:{ responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } } });
 }
