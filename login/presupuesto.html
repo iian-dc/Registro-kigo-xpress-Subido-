@@ -31,6 +31,15 @@ body{background:#f6f7f9;padding:14px;zoom:0.9}
 select{height:40px;border:1px solid #e5e7eb;border-radius:12px;padding:0 12px;font-weight:800;font-size:12px}
 .btn-wa{width:32px;height:32px;background:#25D366;border:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .btn-wa svg{fill:#fff;width:18px;height:18px}
+/* CATEGORIAS ARRIBA DERECHA - MISMO TAMAÑO */
+.cats{display:flex;gap:8px;align-items:center}
+.cat-btn{height:40px;padding:0 16px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;color:#111;font-weight:800;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.cat-btn.active{background:#E10600;border-color:#E10600;color:#fff}
+.cat-btn .material-icons{font-size:18px}
+/* FILTROS REUBICADOS ABAJO DEL TOP */
+.filtros-bar{max-width:1150px;margin:12px auto 0;background:#fff;border:1px solid #eef0f3;border-radius:16px;padding:12px 16px;display:flex;align-items:center;gap:8px}
+.filtros-bar span{font-size:12px;font-weight:800;color:#6b7280}
+@media(max-width:850px){.top{flex-direction:column;align-items:flex-start;gap:12px}.cats{width:100%}.cat-btn{flex:1;padding:0 8px}}
 </style>
 </head>
 <body>
@@ -40,8 +49,14 @@ select{height:40px;border:1px solid #e5e7eb;border-radius:12px;padding:0 12px;fo
     <button class="btn-x" onclick="location.href='admin.html'"><span class="material-icons" style="font-size:18px">close</span></button>
     <div><h1 style="font-size:18px;font-weight:800;display:flex;align-items:center;gap:6px"><span class="material-icons">account_balance_wallet</span> Presupuesto Kigo Xpress</h1></div>
   </div>
-  <div style="display:flex;gap:8px"><select id="mesFiltro" onchange="render()"><option value="todos">Todos</option></select><select id="yearFiltro" onchange="render()"><option value="2026">2026</option></select></div>
+  <div class="cats">
+    <a class="cat-btn" href="estadisticas.html"><span class="material-icons">bar_chart</span> Estadísticas</a>
+    <a class="cat-btn active" href="presupuesto.html"><span class="material-icons">account_balance_wallet</span> Presupuesto</a>
+    <a class="cat-btn" href="calendario.html"><span class="material-icons">calendar_month</span> Calendario</a>
+  </div>
 </div>
+
+<div class="filtros-bar"><span>Filtros:</span><select id="mesFiltro" onchange="render()"><option value="todos">Todos</option></select><select id="yearFiltro" onchange="render()"><option value="2026">2026</option></select></div>
 
 <div class="cards">
   <div class="card"><div class="ico" style="background:#e0e7ff"><span class="material-icons" style="color:#4f46e5">payments</span></div><small>TOTAL MES - VALOR CLIENTES</small><b id="totalMes">$0</b><small id="countMes">0 servicios</small></div>
