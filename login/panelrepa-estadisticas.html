@@ -79,8 +79,7 @@ body{background:#f6f7f9;padding:14px;zoom:0.9}
 const firebaseConfig = { apiKey: "AIzaSyAsRa2QW9-l3vuh_mWa0ZhJh6ZSPNRRIkM", authDomain: "registro-ventas-kigo.firebaseapp.com", databaseURL: "https://registro-ventas-kigo-default-rtdb.firebaseio.com", projectId: "registro-ventas-kigo", storageBucket: "registro-ventas-kigo.firebasestorage.app", messagingSenderId: "494693818399", appId: "1:494693818399:web:34312307ec5cd52190752a" };
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
-// === TOMAR LA INFORMACION DE panelrepa.html, NO VOLVER A BUSCARLA SOLO ===
-// panelrepa.html guarda: kigo_repa_key, kigo_repa_nombre y kigo_cache_<key> con ventas y gastos ya filtrados para ese repartidor
+// === QUIEN ES EL REPARTIDOR - IGUAL QUE panelrepa.html ===
 let repartidorKey=localStorage.getItem('kigo_repa_key');
 let repartidorNombre=localStorage.getItem('kigo_repa_nombre') || '';
 let ventasAll=[];
@@ -91,62 +90,149 @@ if(!repartidorKey && !repartidorNombre){
   alert('Debes iniciar sesión desde el login');
   window.location.href='index.html';
 }
-document.getElementById('pNombre').innerText=repartidorNombre||'Repartidor';
-document.getElementById('pNombreTop').innerText='Panel de '+(repartidorNombre||'Repartidor');
-document.getElementById('pUsuario').innerText=repartidorNombre ? '@'+repartidorNombre : '';
-function fmt(n){ return '$'+Number(n).toLocaleString('es-MX'); }
-// 1. LEER LO QUE YA DEJO GUARDADO panelrepa.html
-function cargarDesdePanelRepa(){
-  try{
-    if(!repartidorKey) return false;
-    var raw=localStorage.getItem('kigo_cache_'+repartidorKey);
-    if(!raw) return false;
-    var d=JSON.parse(raw);
-    if(!d || !d.ventas) return false;
-    ventasAll=d.ventas||[];
-    gastosAll=d.gastos||[];
-    aplicarMesReciente();
-    renderIngresos(); renderEnvios(); renderGastos();
-    return true;
-  }catch(e){ return false; }
+function ponerNombre(nombre, usuario){
+  document.getElementById('pNombre').innerText=nombre||'Repartidor';
+  document.getElementById('pNombreTop').innerText='Panel de '+(nombre||'Repartidor');
+  document.getElementById('pUsuario').innerText=nombre ? '@'+(usuario||nombre) : '';
 }
-// 2. TAMBIEN ESCUCHAR EN TIEMPO REAL CON EL MISMO CODIGO DE panelrepa.html, POR SI ENTRA UN SERVICIO NUEVO
+ponerNombre(repartidorNombre, repartidorNombre);
+if(repartidorKey){
+  db.ref('repartidores/'+repartidorKey).once('value').then(function(s){
+    if(s.val()){
+      repartidorNombre=s.val().nombre||repartidorNombre;
+      ponerNombre(repartidorNombre, s.val().usuario||repartidorNombre);
+    }
+  }).catch(function(){});
+}
 function sinAcento(t){ return (t||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); }
-function cargarVentasComoPanelRepa(){
+function fmt(n){ return '$'+Number(n).toLocaleString('es-MX'); }
+// Convertir un pedido/venta a lo que usan las gráficas, sin importar como venga
+function normalizarPedido(v, id){
+  let raw=(v.tipoServicio||v.servicio||v.tipo||'').toString().toLowerCase();
+  let esTrans=raw.includes('trans');
+  let tarifa=parseFloat(v.tarifaAplicada||v.tarifaCongelada||v.tarifaM||v.tarifaT||v.pagaKigo||v.pagaKigoBase||v.pago|| (esTrans?10:5))|| (esTrans?10:5);
+  // Si es transporte usa tarifaT / 10, si es mandado usa tarifaM / 5
+  if(esTrans && v.tarifaT) tarifa=parseFloat(v.tarifaT);
+  if(!esTrans && v.tarifaM) tarifa=parseFloat(v.tarifaM);
+  let precioCliente=parseFloat(v.precio||v.total||v.valor||v.precioCliente||0)||0;
+  let ganancia=parseFloat(v.ganancia);
+  if(isNaN(ganancia)) ganancia=precioCliente - tarifa;
+  // Fecha puede venir como "2026-08-27" o como numero 1791043155561
+  let fechaStr='';
+  if(v.fecha){
+    if(typeof v.fecha==='number') fechaStr=new Date(v.fecha).toISOString().slice(0,10);
+    else fechaStr=String(v.fecha).slice(0,10);
+  } else if(v.timestamp){
+    fechaStr=new Date(v.timestamp).toISOString().slice(0,10);
+  }
+  return {...v, _id:id||'', _esTrans:esTrans, _tarifa:tarifa, _precioCli:precioCliente, _fecha:fechaStr, _mes:fechaStr.slice(0,7), _ganancia:ganancia};
+}
+// === CORREGIDO: TUS PEDIDOS ESTAN EN pedidos_repartidor, NO EN ventas ===
+function cargarPedidos(){
+  // 1. pedidos_repartidor / TU LLAVE -> solo tus pedidos
+  if(repartidorKey){
+    db.ref('pedidos_repartidor/'+repartidorKey).on('value', function(snap){
+      const data=snap.val()||{};
+      let lista=[];
+      if(Array.isArray(data)){
+        lista=data.map(function(v,i){ return normalizarPedido(v, 'ped-'+i); });
+      } else {
+        lista=Object.entries(data).map(function(pair){ return normalizarPedido(pair[1], pair[0]); });
+      }
+      // Si dentro de tu llave hay otra carpeta con pedidos, abrirla tambien
+      lista=lista.filter(function(v){ return v._fecha; });
+      // Si no hay fecha, puede ser que data sea { pedidos: [...] } o { -Id: {...} }
+      if(!lista.length){
+        Object.values(data).forEach(function(grupo){
+          if(grupo && typeof grupo==='object'){
+            Object.entries(grupo).forEach(function(pair){
+              if(pair[1] && typeof pair[1]==='object' && (pair[1].fecha || pair[1].precio || pair[1].ganancia)) lista.push(normalizarPedido(pair[1], pair[0]));
+            });
+          }
+        });
+      }
+      if(lista.length) actualizarVentas(lista, 'pedidos_repartidor/'+repartidorKey);
+    });
+  }
+  // 2. pedidos_repartidor general -> buscar por tu nombre Jose
+  db.ref('pedidos_repartidor').on('value', function(snap){
+    const data=snap.val()||{};
+    const nombre=sinAcento(repartidorNombre);
+    let lista=[];
+    Object.entries(data).forEach(function(pairGrupo){
+      const grupo=pairGrupo[1];
+      if(!grupo || typeof grupo!=='object') return;
+      Object.entries(grupo).forEach(function(pair){
+        const v=pair[1];
+        if(!v || typeof v!=='object') return;
+        // Si el grupo ya es un pedido directo
+        if(v.fecha || v.precio || v.ganancia){
+          const rep=sinAcento(v.repartidor||v.nombreRepartidor||v.nombre||'');
+          if(!nombre || rep===nombre || rep.includes(nombre) || nombre.includes(rep) || pairGrupo[0]===repartidorKey) lista.push(normalizarPedido(v, pair[0]));
+        } else {
+          // Si hay otro nivel adentro
+          Object.entries(v).forEach(function(pair2){
+            const v2=pair2[1];
+            if(v2 && typeof v2==='object' && (v2.fecha || v2.precio || v2.ganancia)){
+              const rep=sinAcento(v2.repartidor||v2.nombreRepartidor||v2.nombre||'');
+              if(!nombre || rep===nombre || rep.includes(nombre) || nombre.includes(rep) || pairGrupo[0]===repartidorKey) lista.push(normalizarPedido(v2, pair2[0]));
+            }
+          });
+        }
+      });
+    });
+    if(lista.length) actualizarVentas(lista, 'pedidos_repartidor general');
+  });
+  // 3. ventas, por si algun dia se guarda ahi tambien
   db.ref('ventas').on('value', function(snap){
     const data=snap.val()||{};
     const nombre=sinAcento(repartidorNombre);
-    ventasAll=Object.values(data).filter(function(v){
-      const rep=sinAcento(v.repartidor||v.nombreRepartidor||'');
-      return rep===nombre || rep.includes(nombre);
-    }).map(function(v){
-      let raw=(v.tipoServicio||v.servicio||v.tipo||'').toString().toLowerCase();
-      let esTrans=raw.includes('trans');
-      let tarifa=esTrans?10:5;
-      let estado=(v.estado||'').toLowerCase();
-      let precioCliente=parseFloat(v.precio||v.total||v.valor||0)||0;
-      let ganancia=parseFloat(v.ganancia);
-      if(isNaN(ganancia)) ganancia=precioCliente - tarifa;
-      let fechaStr=(v.fecha||'').slice(0,10);
-      return {...v, _esTrans:esTrans, _tarifa:tarifa, _estado:estado, _precioCli:precioCliente, _fecha:fechaStr, _mes:fechaStr.slice(0,7), _ganancia:ganancia};
-    });
-    // Guardar igual que panelrepa para que la proxima vez ya venga listo
-    try{ if(repartidorKey) localStorage.setItem('kigo_cache_'+repartidorKey, JSON.stringify({ventas:ventasAll, gastos:gastosAll, t:Date.now()})); }catch(e){}
-    aplicarMesReciente();
-    renderIngresos(); renderEnvios();
+    let lista=Object.entries(data).map(function(pair){ return normalizarPedido(pair[1], pair[0]); }).filter(function(v){
+      const rep=sinAcento(v.repartidor||v.nombreRepartidor||v.nombre||'');
+      return !nombre || rep===nombre || rep.includes(nombre) || nombre.includes(rep);
+    }).filter(function(v){ return v._fecha; });
+    if(lista.length) actualizarVentas(lista, 'ventas');
   });
 }
-function cargarGastosComoPanelRepa(){
+let ventasPorFuente={};
+function actualizarVentas(lista, fuente){
+  ventasPorFuente[fuente]=lista;
+  // Juntar todas las fuentes sin duplicar por id + fecha + precio
+  let juntas=[];
+  let vistos={};
+  Object.values(ventasPorFuente).forEach(function(arr){
+    arr.forEach(function(v){
+      let clave=(v._id||'')+'|'+v._fecha+'|'+v._precioCli+'|'+v._ganancia;
+      if(!vistos[clave]){ vistos[clave]=true; juntas.push(v); }
+    });
+  });
+  ventasAll=juntas.filter(function(v){ return v._fecha; });
+  aplicarMesReciente();
+  renderIngresos(); renderEnvios();
+  // Guardar igual que panelrepa para que la proxima vez ya venga listo
+  try{ if(repartidorKey) localStorage.setItem('kigo_cache_'+repartidorKey, JSON.stringify({ventas:ventasAll, gastos:gastosAll, t:Date.now()})); }catch(e){}
+}
+function cargarGastos(){
   if(!repartidorKey) return;
   db.ref('gastos/'+repartidorKey).on('value', function(snap){
     const data=snap.val()||{};
-    gastosAll=Object.entries(data).map(function(pair){
-      const g=pair[1];
-      return { id:pair[0], ...g, _mes:(g.fecha||'').slice(0,7) || g.mes || '' };
-    });
-    try{ if(repartidorKey) localStorage.setItem('kigo_cache_'+repartidorKey, JSON.stringify({ventas:ventasAll, gastos:gastosAll, t:Date.now()})); }catch(e){}
+    if(Array.isArray(data)){
+      gastosAll=data.map(function(g,i){ return { id:'g'+i, ...g, _mes:(g.fecha||'').slice(0,7) || g.mes || '' }; });
+    } else {
+      gastosAll=Object.entries(data).map(function(pair){
+        const g=pair[1];
+        if(g && typeof g==='object' && (g.fecha || g.monto)) return { id:pair[0], ...g, _mes:(g.fecha||'').slice(0,7) || g.mes || '' };
+        return null;
+      }).filter(Boolean);
+    }
     aplicarMesReciente();
     renderGastos();
+  });
+  // Tambien gastos general, por si estan ahi
+  db.ref('gastos').on('value', function(snap){
+    const data=snap.val()||{};
+    if(data && data[repartidorKey]) return; // Ya los tenemos arriba
+    // Si gastos no esta por llave, no tocar nada para no mezclar con otros repartidores
   });
 }
 function aplicarMesReciente(){
@@ -164,10 +250,18 @@ function aplicarMesReciente(){
     document.getElementById('yearGastos').value=partes[0];
   }
 }
-// Primero mostrar lo de panelrepa, luego actualizar en tiempo real
-cargarDesdePanelRepa();
-cargarVentasComoPanelRepa();
-cargarGastosComoPanelRepa();
+// Primero intentar con lo que dejo panelrepa, luego en tiempo real
+try{
+  if(repartidorKey){
+    var raw=localStorage.getItem('kigo_cache_'+repartidorKey);
+    if(raw){
+      var d=JSON.parse(raw);
+      if(d && d.ventas){ ventasAll=d.ventas||[]; gastosAll=d.gastos||[]; aplicarMesReciente(); renderIngresos(); renderEnvios(); renderGastos(); }
+    }
+  }
+}catch(e){}
+cargarPedidos();
+cargarGastos();
 function filtrarPorYear(lista, yearSel, campoFecha){
   if(yearSel==='todos') return lista.slice();
   return lista.filter(function(v){ return (v[campoFecha]||'').indexOf(yearSel)===0; });
