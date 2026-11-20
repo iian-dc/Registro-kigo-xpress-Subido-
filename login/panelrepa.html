@@ -32,12 +32,16 @@ body{background:#f6f7f9}
 .table{width:100%;border-collapse:collapse;margin-top:12px;min-width:520px}
 .table th{font-size:10px;color:#6b7280;text-align:left;padding:8px;border-bottom:1px solid #eef0f3;white-space:nowrap}
 .table td{font-size:12px;padding:10px 8px;border-bottom:1px solid #f3f4f6;font-weight:700;white-space:nowrap}
+.table td.td-mandado{background:#f87171;color:#fff}
+.table td.td-transporte{background:#facc15;color:#fff}
 .badge{padding:4px 10px;border-radius:20px;font-size:10px;font-weight:800;display:inline-flex;align-items:center;gap:4px}
 .badge.pendiente{background:#fef3c7;color:#92400e}
 .badge.pagado{background:#dcfce7;color:#166534}
-.badge-servicio{padding:4px 10px;border-radius:20px;font-size:10px;font-weight:800;display:inline-flex;align-items:center;gap:4px;text-transform:uppercase}
-.badge-servicio.mandado{background:#E10600;color:#fff}
-.badge-servicio.transporte{background:#f59e0b;color:#fff}
+.paginacion{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.paginacion .info{font-size:11px;font-weight:800;color:#6b7280}
+.btn-pag{height:32px;padding:0 14px;border:1px solid #e5e7eb;background:#fff;border-radius:10px;font-weight:800;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px}
+.btn-pag:disabled{opacity:.4;cursor:not-allowed}
+.btn-pag.activo{background:#111;color:#fff;border-color:#111}
 .inp{width:100%;height:40px;border:1px solid #e5e7eb;border-radius:10px;padding:0 12px;margin-top:8px;font-size:12px;font-weight:600;outline:none}
 .btn{width:100%;height:42px;border:none;border-radius:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;z-index:99}
@@ -78,7 +82,7 @@ body{background:#f6f7f9}
   </div>
 </div>
 
-<div class="filtro-bar"><span>Filtrar por mes:</span><select id="filtroMes" onchange="renderStats()"><option value="todos">Todos los meses</option></select><span style="color:#9ca3af">← Desliza las tarjetas →</span></div>
+<div class="filtro-bar"><span>Filtrar por mes:</span><select id="filtroMes" onchange="cambiarFiltroMes()"><option value="todos">Todos los meses</option></select><span style="color:#9ca3af">← Desliza las tarjetas →</span></div>
 
 <div class="cards">
   <div class="card" style="border-left:4px solid #f59e0b"><small>CUANTO DEBES</small><b id="debe" style="color:#d97706">$0</b><small id="debeDet">0 mandados / 0 transportes</small></div>
@@ -108,7 +112,9 @@ body{background:#f6f7f9}
   </div>
   <div class="card" style="min-width:0;flex:1">
     <h3 style="font-size:13px;display:flex;align-items:center;gap:6px"><span class="material-icons">list_alt</span> Mis servicios por fecha</h3>
+    <div class="paginacion" id="paginacionTop"></div>
     <div class="table-wrap"><table class="table"><thead><tr><th>Fecha</th><th>Servicio</th><th>Cliente $</th><th>Tarifa Kigo</th><th>Ganancia</th><th>Estado</th></tr></thead><tbody id="tablaMis"></tbody></table></div>
+    <div class="paginacion" id="paginacionBottom"></div>
   </div>
 </div>
 
@@ -155,7 +161,6 @@ if(!repartidorKey &&!repartidorNombre){
   alert('Debes iniciar sesión desde el login');
   window.location.href='index.html';
 }
-// CORREGIDO VELOCIDAD - Mostrar cache al instante y luego actualizar en fondo
 let renderTimer=null;
 function pedirRender(){
   if(renderTimer) clearTimeout(renderTimer);
@@ -217,6 +222,37 @@ function iniciar(){
 let ventasAll=[];
 let gastosAll=[];
 let gastosRaw={};
+// PAGINACION - 50 servicios por pagina
+let paginaActual=1;
+const POR_PAGINA=50;
+let listaFiltradaActual=[];
+function cambiarFiltroMes(){ paginaActual=1; renderStats(); }
+function cambiarPagina(nueva){
+  var totalPaginas=Math.max(1, Math.ceil(listaFiltradaActual.length/POR_PAGINA));
+  if(nueva<1) nueva=1;
+  if(nueva>totalPaginas) nueva=totalPaginas;
+  paginaActual=nueva;
+  renderTablaServicios();
+  renderPaginacion();
+}
+function renderPaginacion(){
+  var total=listaFiltradaActual.length;
+  var totalPaginas=Math.max(1, Math.ceil(total/POR_PAGINA));
+  var desde= total===0 ? 0 : (paginaActual-1)*POR_PAGINA+1;
+  var hasta=Math.min(paginaActual*POR_PAGINA, total);
+  var html='<button class="btn-pag" onclick="cambiarPagina('+(paginaActual-1)+')" '+(paginaActual<=1?'disabled':'')+'>← Anterior</button><span class="info">Página '+paginaActual+' de '+totalPaginas+' - Mostrando '+desde+' a '+hasta+' de '+total+' servicios</span><button class="btn-pag" onclick="cambiarPagina('+(paginaActual+1)+')" '+(paginaActual>=totalPaginas?'disabled':'')+'>Siguiente →</button>';
+  document.getElementById('paginacionTop').innerHTML=html;
+  document.getElementById('paginacionBottom').innerHTML=html;
+}
+function renderTablaServicios(){
+  var inicio=(paginaActual-1)*POR_PAGINA;
+  var pagina=listaFiltradaActual.slice(inicio, inicio+POR_PAGINA);
+  const tbody=document.getElementById('tablaMis'); tbody.innerHTML='';
+  pagina.forEach(v=>{
+    tbody.innerHTML+=`<tr><td>${v._fecha}</td><td class="${v._esTrans?'td-transporte':'td-mandado'}">${v._esTrans?'transporte':'mandado'}</td><td>${fmt(v._precioCli)}</td><td>${fmt(v._tarifa)}</td><td style="color:#111">${fmt(v._ganancia)}</td><td><span class="badge ${v._estado==='pagado'?'pagado':'pendiente'}">${v._estado.toUpperCase()}</span></td></tr>`;
+  });
+  if(!pagina.length) tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#9ca3af">Sin servicios</td></tr>';
+}
 function cargarVentas(){
   db.ref('ventas').on('value', snap=>{
     const data=snap.val()||{};
@@ -309,10 +345,11 @@ function renderStats(){
   document.getElementById('totalFinal').innerText=fmt(totalFinal);
   document.getElementById('pIngMes').innerText='Ingresos mes ('+formatoMesAnioCorto(mesSel)+'): '+fmt(ingresos)+' - Gastos '+fmt(gastos)+' = '+fmt(totalFinal);
   document.getElementById('totalListaGastos').innerText=fmt(gastos);
-  const tbody=document.getElementById('tablaMis'); tbody.innerHTML='';
-  lista.sort((a,b)=> (b._fecha||'').localeCompare(a._fecha||'')).forEach(v=>{
-    tbody.innerHTML+=`<tr><td>${v._fecha}</td><td><span class="badge-servicio ${v._esTrans?'transporte':'mandado'}">${v._esTrans?'transporte':'mandado'}</span></td><td>${fmt(v._precioCli)}</td><td>${fmt(v._tarifa)}</td><td style="color:#111">${fmt(v._ganancia)}</td><td><span class="badge ${v._estado==='pagado'?'pagado':'pendiente'}">${v._estado.toUpperCase()}</span></td></tr>`;
-  });
+  listaFiltradaActual=lista.slice().sort((a,b)=> (b._fecha||'').localeCompare(a._fecha||''));
+  var totalPaginas=Math.max(1, Math.ceil(listaFiltradaActual.length/POR_PAGINA));
+  if(paginaActual>totalPaginas) paginaActual=totalPaginas;
+  renderTablaServicios();
+  renderPaginacion();
   renderListaGastos();
 }
 function renderListaGastos(){
