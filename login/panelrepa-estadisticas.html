@@ -79,10 +79,10 @@ body{background:#f6f7f9;padding:14px;zoom:0.9}
 const firebaseConfig = { apiKey: "AIzaSyAsRa2QW9-l3vuh_mWa0ZhJh6ZSPNRRIkM", authDomain: "registro-ventas-kigo.firebaseapp.com", databaseURL: "https://registro-ventas-kigo-default-rtdb.firebaseio.com", projectId: "registro-ventas-kigo", storageBucket: "registro-ventas-kigo.firebasestorage.app", messagingSenderId: "494693818399", appId: "1:494693818399:web:34312307ec5cd52190752a" };
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
-// === DIRECTO, SIN ESPERAR A repartidores ===
+// === TOMAR LA INFORMACION DE panelrepa.html, NO VOLVER A BUSCARLA SOLO ===
+// panelrepa.html guarda: kigo_repa_key, kigo_repa_nombre y kigo_cache_<key> con ventas y gastos ya filtrados para ese repartidor
 let repartidorKey=localStorage.getItem('kigo_repa_key');
 let repartidorNombre=localStorage.getItem('kigo_repa_nombre') || '';
-let repartidorActual={ nombre: repartidorNombre };
 let ventasAll=[];
 let gastosAll=[];
 let chartIngresos=null, chartEnvios=null, chartGastos=null;
@@ -94,61 +94,49 @@ if(!repartidorKey && !repartidorNombre){
 document.getElementById('pNombre').innerText=repartidorNombre||'Repartidor';
 document.getElementById('pNombreTop').innerText='Panel de '+(repartidorNombre||'Repartidor');
 document.getElementById('pUsuario').innerText=repartidorNombre ? '@'+repartidorNombre : '';
-// Si hay foto guardada en repartidores, cargarla en el fondo, sin bloquear nada
-if(repartidorKey){
-  db.ref('repartidores/'+repartidorKey).once('value').then(function(s){
-    if(s.val()){
-      repartidorActual=s.val();
-      if(repartidorActual.nombre) repartidorNombre=repartidorActual.nombre;
-      document.getElementById('pNombre').innerText=repartidorActual.nombre||repartidorNombre;
-      document.getElementById('pNombreTop').innerText='Panel de '+(repartidorActual.nombre||repartidorNombre);
-      document.getElementById('pUsuario').innerText='@'+(repartidorActual.usuario||repartidorActual.nombre||repartidorNombre);
-      cargarVentas();
-    }
-  }).catch(function(){});
-}
-function sinAcento(t){ return (t||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); }
 function fmt(n){ return '$'+Number(n).toLocaleString('es-MX'); }
-// Cargar ventas en tiempo real, directo de Firebase
-function cargarVentas(){
+// 1. LEER LO QUE YA DEJO GUARDADO panelrepa.html
+function cargarDesdePanelRepa(){
+  try{
+    if(!repartidorKey) return false;
+    var raw=localStorage.getItem('kigo_cache_'+repartidorKey);
+    if(!raw) return false;
+    var d=JSON.parse(raw);
+    if(!d || !d.ventas) return false;
+    ventasAll=d.ventas||[];
+    gastosAll=d.gastos||[];
+    aplicarMesReciente();
+    renderIngresos(); renderEnvios(); renderGastos();
+    return true;
+  }catch(e){ return false; }
+}
+// 2. TAMBIEN ESCUCHAR EN TIEMPO REAL CON EL MISMO CODIGO DE panelrepa.html, POR SI ENTRA UN SERVICIO NUEVO
+function sinAcento(t){ return (t||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); }
+function cargarVentasComoPanelRepa(){
   db.ref('ventas').on('value', function(snap){
     const data=snap.val()||{};
-    const nombre=sinAcento(repartidorActual.nombre||repartidorNombre);
-    const todas=Object.values(data).map(function(v){
+    const nombre=sinAcento(repartidorNombre);
+    ventasAll=Object.values(data).filter(function(v){
+      const rep=sinAcento(v.repartidor||v.nombreRepartidor||'');
+      return rep===nombre || rep.includes(nombre);
+    }).map(function(v){
       let raw=(v.tipoServicio||v.servicio||v.tipo||'').toString().toLowerCase();
       let esTrans=raw.includes('trans');
-      let tarifa=parseFloat(v.tarifaAplicada||v.tarifaCongelada||v.pagaKigo||v.pagaKigoBase||v.pago|| (esTrans?10:5))|| (esTrans?10:5);
+      let tarifa=esTrans?10:5;
+      let estado=(v.estado||'').toLowerCase();
       let precioCliente=parseFloat(v.precio||v.total||v.valor||0)||0;
       let ganancia=parseFloat(v.ganancia);
       if(isNaN(ganancia)) ganancia=precioCliente - tarifa;
       let fechaStr=(v.fecha||'').slice(0,10);
-      return {...v, _esTrans:esTrans, _tarifa:tarifa, _precioCli:precioCliente, _fecha:fechaStr, _mes:fechaStr.slice(0,7), _ganancia:ganancia};
+      return {...v, _esTrans:esTrans, _tarifa:tarifa, _estado:estado, _precioCli:precioCliente, _fecha:fechaStr, _mes:fechaStr.slice(0,7), _ganancia:ganancia};
     });
-    // Filtrar por repartidor sin acentos
-    let filtradas=todas.filter(function(v){
-      const rep=sinAcento(v.repartidor||v.nombreRepartidor||v.nombre||'');
-      return rep===nombre || rep.includes(nombre) || (nombre && nombre.includes(rep));
-    });
-    // Si por nombre no salió nada pero sí hay ventas, mostrar todas para que nunca se quede en cero por el nombre
-    ventasAll=filtradas.length ? filtradas : todas;
-    // Mes más reciente con datos: poner los filtros en ese mes
-    if(!mesRecienteAplicado && ventasAll.length){
-      mesRecienteAplicado=true;
-      let meses=[...new Set(ventasAll.map(function(v){ return v._mes; }))].filter(Boolean).sort();
-      let ultimo=meses[meses.length-1]; // Ej: 2026-08
-      if(ultimo){
-        let partes=ultimo.split('-');
-        document.getElementById('mesIngresos').value=partes[1];
-        document.getElementById('yearIngresos').value=partes[0];
-        document.getElementById('yearEnvios').value=partes[0];
-        document.getElementById('mesGastos').value=partes[1];
-        document.getElementById('yearGastos').value=partes[0];
-      }
-    }
+    // Guardar igual que panelrepa para que la proxima vez ya venga listo
+    try{ if(repartidorKey) localStorage.setItem('kigo_cache_'+repartidorKey, JSON.stringify({ventas:ventasAll, gastos:gastosAll, t:Date.now()})); }catch(e){}
+    aplicarMesReciente();
     renderIngresos(); renderEnvios();
   });
 }
-function cargarGastos(){
+function cargarGastosComoPanelRepa(){
   if(!repartidorKey) return;
   db.ref('gastos/'+repartidorKey).on('value', function(snap){
     const data=snap.val()||{};
@@ -156,11 +144,30 @@ function cargarGastos(){
       const g=pair[1];
       return { id:pair[0], ...g, _mes:(g.fecha||'').slice(0,7) || g.mes || '' };
     });
+    try{ if(repartidorKey) localStorage.setItem('kigo_cache_'+repartidorKey, JSON.stringify({ventas:ventasAll, gastos:gastosAll, t:Date.now()})); }catch(e){}
+    aplicarMesReciente();
     renderGastos();
   });
 }
-cargarVentas();
-cargarGastos();
+function aplicarMesReciente(){
+  if(mesRecienteAplicado) return;
+  if(!ventasAll.length && !gastosAll.length) return;
+  mesRecienteAplicado=true;
+  let meses=[...new Set([...ventasAll.map(function(v){ return v._mes; }), ...gastosAll.map(function(g){ return g._mes; })])].filter(Boolean).sort();
+  let ultimo=meses[meses.length-1];
+  if(ultimo){
+    let partes=ultimo.split('-');
+    document.getElementById('mesIngresos').value=partes[1];
+    document.getElementById('yearIngresos').value=partes[0];
+    document.getElementById('yearEnvios').value=partes[0];
+    document.getElementById('mesGastos').value=partes[1];
+    document.getElementById('yearGastos').value=partes[0];
+  }
+}
+// Primero mostrar lo de panelrepa, luego actualizar en tiempo real
+cargarDesdePanelRepa();
+cargarVentasComoPanelRepa();
+cargarGastosComoPanelRepa();
 function filtrarPorYear(lista, yearSel, campoFecha){
   if(yearSel==='todos') return lista.slice();
   return lista.filter(function(v){ return (v[campoFecha]||'').indexOf(yearSel)===0; });
