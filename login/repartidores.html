@@ -97,12 +97,26 @@ let repartidores=[], ventas=[], editId=null, deleteId=null, fotoBase64=null, tab
 db.ref('repartidores').on('value',s=>{repartidores=Object.entries(s.val()||{}).map(([id,d])=>({id,...d}));render();});
 db.ref('ventas').on('value',s=>{ventas=Object.values(s.val()||{});conteo={};ventas.forEach(p=>{const r=(p.repartidor||'').toLowerCase().trim();if(r)conteo[r]=(conteo[r]||0)+1});render();});
 function getServicios(r){return conteo[(r.nombre||'').toLowerCase().trim()]||0;}
-// CORREGIDO - Lee el precio con cualquier nombre que tenga guardado, para no volver a 40/60
 function getPrecioRep(r, esTrans){
   if(!r) return esTrans?60:40;
   var cands = esTrans ? [r.precioTransporte, r.tarifaTransporte, r.tarifaT, r.precioTrans, r.tarifaTrans] : [r.precioMandado, r.tarifaMandado, r.tarifaM, r.precioMoto, r.tarifaMoto];
   for(var i=0;i<cands.length;i++){ if(cands[i]!=null && cands[i]!=='' && !isNaN(parseInt(cands[i]))) return parseInt(cands[i]); }
   return esTrans?60:40;
+}
+// CORREGIDO - El 0 sí es válido, solo si está vacío se usa el valor por defecto
+function leerPrecioInput(id, porDefecto){
+  var v = document.getElementById(id).value;
+  if(v===null || v===undefined || String(v).trim()==='') return porDefecto;
+  var n = parseInt(v);
+  if(isNaN(n)) return porDefecto;
+  return n;
+}
+// CORREGIDO - Activos arriba, En descanso en medio, Inactivos abajo
+function ordenEstado(r){
+  if(r.estado==='Activo') return 0;
+  if(r.estado==='En descanso') return 1;
+  if(r.estado==='Inactivo') return 2;
+  return 3;
 }
 function cambiarTab(t){tabActual=t;document.getElementById('tabList').classList.toggle('active',t==='list');document.getElementById('tabRank').classList.toggle('active',t==='rank');document.getElementById('tablaList').style.display=t==='list'?'table':'none';document.getElementById('rankingView').style.display=t==='rank'?'block':'none';render();}
 function render(){
@@ -110,6 +124,7 @@ function render(){
  const q=document.getElementById('buscar').value.toLowerCase().trim(); const est=document.getElementById('filtroEstado').value;
  if(tabActual==='list'){
   lista=lista.filter(r=>{if(est!=='todos'&&r.estado!==est)return false;if(q&&!`${r.nombre} ${r.telefono} ${r.usuario||''}`.toLowerCase().includes(q))return false;return true;});
+  lista.sort((a,b)=> ordenEstado(a)-ordenEstado(b) || (a.nombre||'').localeCompare(b.nombre||''));
   const tbody=document.getElementById('tbody');tbody.innerHTML='';
   lista.forEach((r,i)=>{
    const foto=r.fotoBase64||r.foto||`https://i.pravatar.cc/100?u=${r.id}`;
@@ -129,8 +144,8 @@ function abrirEditar(id){const r=repartidores.find(x=>x.id===id);if(!r)return;ed
 function cerrarModal(){document.getElementById('modalBg').classList.remove('open');editId=null;fotoBase64=null;}
 document.getElementById('fotoInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=ev=>{fotoBase64=ev.target.result;document.getElementById('fotoPreview').src=fotoBase64;};rd.readAsDataURL(f);});
 function guardarModal(){
-  const pm=parseInt(document.getElementById('mPrecioMandado').value)||40;
-  const pt=parseInt(document.getElementById('mPrecioTrans').value)||60;
+  const pm=leerPrecioInput('mPrecioMandado',40);
+  const pt=leerPrecioInput('mPrecioTrans',60);
   const data={nombre:document.getElementById('mNombre').value.trim(),telefono:document.getElementById('mTelefono').value.trim(),moto:document.getElementById('mMoto').value.trim(),domicilio:document.getElementById('mDomicilio').value.trim(),usuario:document.getElementById('mUsuario').value.trim(),contraseña:document.getElementById('mPassword').value.trim(),password:document.getElementById('mPassword').value.trim(),estado:document.getElementById('mEstado').value,
   precioMandado:pm, precioTransporte:pt,
   tarifaMandado:pm, tarifaTransporte:pt,
