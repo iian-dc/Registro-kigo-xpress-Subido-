@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calendario - Kigo Xpress</title>
+<script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Manrope',sans-serif}
+body{background:#f6f7f9;padding:14px;zoom:0.9}
+.material-icons{font-size:20px;vertical-align:middle}
+.top{max-width:1150px;margin:0 auto;background:#fff;border:1px solid #eef0f3;border-radius:16px;padding:16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.btn-x{width:36px;height:36px;background:#E10600;border:none;color:#fff;border-radius:10px;font-weight:900;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cats{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cats select{height:40px;border:1px solid #e5e7eb;border-radius:12px;padding:0 12px;font-weight:800;font-size:12px;background:#fff}
+.cats span{font-size:12px;font-weight:800;color:#6b7280}
+.resumen{max-width:1150px;margin:16px auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.card{background:#fff;border:1px solid #eef0f3;border-radius:16px;padding:18px}
+.card b{font-size:26px;display:block;margin-top:6px}
+.card small{color:#6b7280;font-size:11px;font-weight:800}
+.ico{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+.cal-wrap{max-width:1150px;margin:0 auto;background:#fff;border:1px solid #eef0f3;border-radius:16px;padding:16px}
+.cal-title{font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px;margin-bottom:12px;text-transform:capitalize}
+.cal-head{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
+.cal-head div{text-align:center;font-size:11px;font-weight:800;color:#6b7280;padding:8px 0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal-day{min-height:86px;border:1px solid #eef0f3;border-radius:12px;padding:8px;background:#fff;position:relative}
+.cal-day.vacio{background:#fafafa;border-color:#f3f4f6}
+.cal-day.hoy{border:2px solid #E10600;background:#fff5f5}
+.cal-day .num{font-size:13px;font-weight:800}
+.cal-day .hoy-tag{font-size:9px;background:#E10600;color:#fff;padding:2px 6px;border-radius:99px;font-weight:800;margin-left:4px}
+.cal-day .ingreso{font-size:14px;font-weight:800;color:#16a34a;margin-top:6px}
+.cal-day .serv{font-size:11px;font-weight:700;color:#111;margin-top:2px}
+.cal-day .sin{font-size:11px;color:#9ca3af;margin-top:10px;font-weight:700}
+.cal-day .detalle{font-size:10px;color:#6b7280;margin-top:2px}
+@media(max-width:700px){.cal-day{min-height:72px;padding:6px}.cal-day .ingreso{font-size:12px}.cal-day .serv{font-size:10px}.cal-head div{font-size:10px}}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div style="display:flex;align-items:center;gap:12px">
+    <button class="btn-x" onclick="location.href='presupuesto.html'"><span class="material-icons" style="font-size:18px">close</span></button>
+    <div><h1 style="font-size:18px;font-weight:800;display:flex;align-items:center;gap:6px"><span class="material-icons">calendar_month</span> Calendario Kigo Xpress</h1></div>
+  </div>
+  <div class="cats">
+    <span>Filtros:</span>
+    <select id="mesFiltro" onchange="render()"><option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option><option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option><option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select>
+    <select id="yearFiltro" onchange="render()"><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option></select>
+    <select id="repFiltro" onchange="render()"><option value="todos">Todos los repartidores</option></select>
+  </div>
+</div>
+
+<div class="resumen">
+  <div class="card" style="border-left:4px solid #4f46e5"><div class="ico" style="background:#e0e7ff"><span class="material-icons" style="color:#4f46e5">two_wheeler</span></div><small>SERVICIOS DEL MES</small><b id="totalServicios">0</b><small id="labelMes">Mes actual</small></div>
+  <div class="card" style="border-left:4px solid #16a34a"><div class="ico" style="background:#dcfce7"><span class="material-icons" style="color:#16a34a">payments</span></div><small>INGRESO DEL MES</small><b id="totalIngreso" style="color:#16a34a">$0</b><small>Suma de todos los días del mes</small></div>
+  <div class="card" style="border-left:4px solid #f59e0b"><div class="ico" style="background:#fef3c7"><span class="material-icons" style="color:#d97706">savings</span></div><small>GANANCIA KIGO DEL MES</small><b id="totalKigo" style="color:#d97706">$0</b><small>Tarifa Kigo de todos los servicios</small></div>
+</div>
+
+<div class="cal-wrap">
+  <div class="cal-title"><span class="material-icons">calendar_month</span> <span id="tituloMes">Mes</span></div>
+  <div class="cal-head"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div></div>
+  <div class="cal-grid" id="calGrid"></div>
+</div>
+
+<script>
+const firebaseConfig = { apiKey: "AIzaSyAsRa2QW9-l3vuh_mWa0ZhJh6ZSPNRRIkM", authDomain: "registro-ventas-kigo.firebaseapp.com", databaseURL: "https://registro-ventas-kigo-default-rtdb.firebaseio.com", projectId: "registro-ventas-kigo", storageBucket: "registro-ventas-kigo.firebasestorage.app", messagingSenderId: "494693818399", appId: "1:494693818399:web:34312307ec5cd52190752a" };
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database();
+let ventasAll=[], repartidoresDB={};
+const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function tarifaReal(v, esTransporte){
+  var cands = [v.tarifaCongelada, v.pago, v.pagaKigo, v.pagaKigoBase, v.tarifaKigo, v.tarifa, v.comision, v.pagoRepartidor];
+  for(var i=0;i<cands.length;i++){ if(cands[i]!=null && cands[i]!=='' && !isNaN(parseFloat(cands[i]))) return parseFloat(cands[i]); }
+  var rep = Object.values(repartidoresDB).find(r=> (r.nombre||'').trim().toLowerCase() === (v._repartidor||'').trim().toLowerCase());
+  if(rep){
+    var c2 = esTransporte ? [rep.precioTransporte, rep.tarifaTransporte, rep.tarifaT, rep.precioTrans, rep.tarifaTrans] : [rep.precioMandado, rep.tarifaMandado, rep.tarifaM, rep.precioMoto, rep.tarifaMoto];
+    for(var j=0;j<c2.length;j++){ if(c2[j]!=null && c2[j]!=='' && !isNaN(parseFloat(c2[j]))) return parseFloat(c2[j]); }
+  }
+  return esTransporte ? 10 : 5;
+}
+function procesarVentas(data){
+  ventasAll=Object.keys(data).map(function(k){
+    var v=data[k];
+    var fecha = (v.fecha || v.fechaCreacion || v.date || new Date().toISOString().slice(0,10)).toString().slice(0,10);
+    var precioCliente = 0;
+    if(v.precio) precioCliente = parseFloat(v.precio);
+    else if(v.total) precioCliente = parseFloat(v.total);
+    else if(v.valor) precioCliente = parseFloat(v.valor);
+    else if(v.precioAliado) precioCliente = parseFloat(v.precioAliado);
+    else if(v.valorServicio) precioCliente = parseFloat(v.valorServicio);
+    else if(v.monto) precioCliente = parseFloat(v.monto);
+    if(isNaN(precioCliente)) precioCliente=0;
+    var nombreRep = (v.repartidor || v.nombreRepartidor || v.repartidorNombre || v.nombre || 'Sin asignar').toString().trim();
+    var raw = (v.tipoServicio || v.servicio || v.tipo || v.categoria || '').toString().toLowerCase();
+    var esTransporte = raw.includes('trans');
+    var obj = { _fecha: fecha, _precioCliente: precioCliente, _repartidor: nombreRep, _esTransporte: esTransporte, _mes: fecha.slice(0,7) };
+    obj._tarifaKigo = tarifaReal(v, esTransporte);
+    return obj;
+  });
+  initFiltros(); render();
+}
+db.ref('repartidores').on('value', function(s){ repartidoresDB=s.val()||{}; render(); });
+db.ref('ventas').on('value', function(snap){ procesarVentas(snap.val()||{}); });
+function initFiltros(){
+  var reps=[]; ventasAll.forEach(function(v){ if(v._repartidor && reps.indexOf(v._repartidor)===-1) reps.push(v._repartidor); }); reps.sort();
+  var selR=document.getElementById('repFiltro');
+  var curRep=selR.value||'todos';
+  selR.innerHTML='<option value="todos">Todos los repartidores</option>';
+  reps.forEach(function(r){ var op=document.createElement('option'); op.value=r; op.textContent=r; selR.appendChild(op); });
+  if(reps.indexOf(curRep)!==-1) selR.value=curRep;
+  var hoy=new Date();
+  var mesActual=String(hoy.getMonth()+1).padStart(2,'0');
+  if(!document.getElementById('mesFiltro').dataset.init){ document.getElementById('mesFiltro').value=mesActual; document.getElementById('mesFiltro').dataset.init='1'; }
+}
+function render(){
+  var mesSel=document.getElementById('mesFiltro').value;
+  var yearSel=document.getElementById('yearFiltro').value;
+  var repSel=document.getElementById('repFiltro').value;
+  var mesClave=yearSel+'-'+mesSel;
+  var filtradas=ventasAll.filter(function(v){ return v._mes===mesClave; });
+  if(repSel!=='todos') filtradas=filtradas.filter(function(v){ return v._repartidor===repSel; });
+  var totalServicios=filtradas.length;
+  var totalIngreso=0; filtradas.forEach(function(v){ totalIngreso+=v._precioCliente; });
+  var totalKigo=0; filtradas.forEach(function(v){ totalKigo+=v._tarifaKigo; });
+  document.getElementById('totalServicios').innerText=totalServicios;
+  document.getElementById('totalIngreso').innerText='$'+totalIngreso.toLocaleString('es-MX');
+  document.getElementById('totalKigo').innerText='$'+totalKigo.toLocaleString('es-MX');
+  document.getElementById('labelMes').innerText=MESES[parseInt(mesSel)-1]+' '+yearSel;
+  document.getElementById('tituloMes').innerText=MESES[parseInt(mesSel)-1]+' '+yearSel;
+  var porDia={};
+  filtradas.forEach(function(v){ if(!porDia[v._fecha]) porDia[v._fecha]={count:0, ingreso:0, kigo:0}; porDia[v._fecha].count++; porDia[v._fecha].ingreso+=v._precioCliente; porDia[v._fecha].kigo+=v._tarifaKigo; });
+  var yearNum=parseInt(yearSel); var mesNum=parseInt(mesSel)-1;
+  var primerDia=new Date(yearNum, mesNum, 1);
+  var ultimoDia=new Date(yearNum, mesNum+1, 0).getDate();
+  var inicio=(primerDia.getDay()+6)%7;
+  var hoyStr=new Date().toISOString().slice(0,10);
+  var grid=document.getElementById('calGrid'); grid.innerHTML='';
+  for(var i=0;i<inicio;i++){ grid.innerHTML+='<div class="cal-day vacio"></div>'; }
+  for(var d=1; d<=ultimoDia; d++){
+    var fechaStr=yearSel+'-'+mesSel+'-'+String(d).padStart(2,'0');
+    var info=porDia[fechaStr];
+    var esHoy = fechaStr===hoyStr;
+    var contenido='';
+    if(info){
+      contenido='<div class="ingreso">$'+info.ingreso.toLocaleString('es-MX')+'</div><div class="serv">'+info.count+' servicio'+(info.count>1?'s':'')+'</div><div class="detalle">Kigo $'+info.kigo.toLocaleString('es-MX')+'</div>';
+    } else {
+      contenido='<div class="sin">Sin servicios</div>';
+    }
+    grid.innerHTML+='<div class="cal-day '+(esHoy?'hoy':'')+'"><div><span class="num">'+d+'</span>'+(esHoy?'<span class="hoy-tag">HOY</span>':'')+'</div>'+contenido+'</div>';
+  }
+}
+</script>
+</body>
+</html>
