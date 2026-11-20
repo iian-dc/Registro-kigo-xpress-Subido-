@@ -47,7 +47,7 @@ body{background:#f6f7f9;padding:14px;zoom:0.9}
 
 <div class="top">
   <div style="display:flex;align-items:center;gap:12px;min-width:0">
-    <button class="btn-x" onclick="location.href='panel-repa.html'"><span class="material-icons" style="font-size:18px">close</span></button>
+    <button class="btn-x" onclick="location.href='panelrepa.html'"><span class="material-icons" style="font-size:18px">close</span></button>
     <div style="min-width:0"><h1 style="font-size:18px;font-weight:800;display:flex;align-items:center;gap:6px"><span class="material-icons">bar_chart</span> Estadísticas</h1><p style="font-size:11px;color:#6b7280" id="pNombreTop">Panel del repartidor</p></div>
   </div>
   <div style="display:flex;align-items:center;gap:10px">
@@ -84,38 +84,52 @@ body{background:#f6f7f9;padding:14px;zoom:0.9}
 const firebaseConfig = { apiKey: "AIzaSyAsRa2QW9-l3vuh_mWa0ZhJh6ZSPNRRIkM", authDomain: "registro-ventas-kigo.firebaseapp.com", databaseURL: "https://registro-ventas-kigo-default-rtdb.firebaseio.com", projectId: "registro-ventas-kigo", storageBucket: "registro-ventas-kigo.firebasestorage.app", messagingSenderId: "494693818399", appId: "1:494693818399:web:34312307ec5cd52190752a" };
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
-let repartidorActual=null;
+// CORREGIDO - Entra de una vez con el nombre guardado, no espera a Firebase
 let repartidorKey=localStorage.getItem('kigo_repa_key');
 let repartidorNombre=localStorage.getItem('kigo_repa_nombre') || localStorage.getItem('kigo_nombre') || localStorage.getItem('kigo_repa_usuario') || '';
+let repartidorActual={ nombre: repartidorNombre };
+let yaInicio=false;
 if(!repartidorKey && !repartidorNombre){
   alert('Debes iniciar sesión desde el login');
   window.location.href='index.html';
+} else {
+  iniciar();
+  cargarDatosRepartidor();
 }
-// Si no hay registro en repartidores, igual entrar con el nombre guardado para no quedarse en cero / cargando
-function entrarConNombreGuardado(){
-  if(!repartidorActual && repartidorNombre){
-    repartidorActual={ nombre: repartidorNombre };
-  }
-  if(repartidorActual) iniciar();
+function cargarDatosRepartidor(){
+  if(repartidorKey){
+    db.ref('repartidores/'+repartidorKey).once('value').then(function(s){
+      if(s.val()){
+        repartidorActual=s.val();
+        if(!repartidorActual.nombre) repartidorActual.nombre=repartidorNombre;
+        if(repartidorActual.foto) document.getElementById('pAvatar').src=repartidorActual.foto;
+        document.getElementById('pNombre').innerText=repartidorActual.nombre||'Repartidor';
+        document.getElementById('pNombreTop').innerText='Panel de '+(repartidorActual.nombre||'Repartidor');
+        document.getElementById('pUsuario').innerText='@'+(repartidorActual.usuario||repartidorActual.nombre||'');
+        cargarVentas();
+      } else { buscarPorNombre(); }
+    }).catch(function(){ buscarPorNombre(); });
+  } else { buscarPorNombre(); }
 }
-if(repartidorKey){
-  db.ref('repartidores/'+repartidorKey).once('value', s=>{
-    if(s.val()){ repartidorActual=s.val(); iniciar(); }
-    else buscarPorNombre();
-  }).catch(function(){ entrarConNombreGuardado(); });
-} else { buscarPorNombre(); }
 function buscarPorNombre(){
-  db.ref('repartidores').once('value', snap=>{
+  db.ref('repartidores').once('value').then(function(snap){
     const data=snap.val()||{};
     Object.keys(data).forEach(k=>{
       const r=data[k];
       if((r.nombre||'').toLowerCase()===(repartidorNombre||'').toLowerCase()){ repartidorActual=r; repartidorKey=k; }
     });
-    if(repartidorActual) iniciar();
-    else entrarConNombreGuardado();
-  }).catch(function(){ entrarConNombreGuardado(); });
+    if(repartidorActual && repartidorActual.foto) document.getElementById('pAvatar').src=repartidorActual.foto;
+    if(repartidorActual){
+      document.getElementById('pNombre').innerText=repartidorActual.nombre||repartidorNombre;
+      document.getElementById('pNombreTop').innerText='Panel de '+(repartidorActual.nombre||repartidorNombre);
+      document.getElementById('pUsuario').innerText='@'+(repartidorActual.usuario||repartidorActual.nombre||repartidorNombre);
+    }
+    cargarVentas(); cargarGastos();
+  }).catch(function(){});
 }
 function iniciar(){
+  if(yaInicio) return;
+  yaInicio=true;
   document.getElementById('pNombre').innerText=repartidorActual.nombre||'Repartidor';
   document.getElementById('pNombreTop').innerText='Panel de '+(repartidorActual.nombre||'Repartidor');
   document.getElementById('pUsuario').innerText='@'+(repartidorActual.usuario||repartidorActual.nombre||'');
@@ -143,10 +157,10 @@ function cargarCache(){
 function cargarVentas(){
   db.ref('ventas').on('value', snap=>{
     const data=snap.val()||{};
-    const nombre=(repartidorActual.nombre||'').toLowerCase();
+    const nombre=(repartidorActual.nombre||repartidorNombre||'').toLowerCase().trim();
     ventasAll=Object.values(data).filter(v=>{
-      const rep=(v.repartidor||v.nombreRepartidor||v.nombre||'').toLowerCase();
-      return rep===nombre || rep.includes(nombre) || nombre.includes(rep);
+      const rep=(v.repartidor||v.nombreRepartidor||v.nombre||'').toLowerCase().trim();
+      return rep===nombre || rep.includes(nombre) || (nombre && nombre.includes(rep));
     }).map(v=>{
       let raw=(v.tipoServicio||v.servicio||v.tipo||'').toString().toLowerCase();
       let esTrans=raw.includes('trans');
@@ -161,6 +175,7 @@ function cargarVentas(){
   });
 }
 function cargarGastos(){
+  if(!repartidorKey) return;
   db.ref('gastos/'+repartidorKey).on('value', snap=>{
     const data=snap.val()||{};
     gastosAll=Object.entries(data).map(([id,g])=>({ id, ...g, _mes:(g.fecha||'').slice(0,7) || g.mes || '' }));
