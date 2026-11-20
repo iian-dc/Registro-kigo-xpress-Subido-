@@ -31,13 +31,11 @@ body{background:#f6f7f9;padding:14px;zoom:0.9}
 select{height:40px;border:1px solid #e5e7eb;border-radius:12px;padding:0 12px;font-weight:800;font-size:12px}
 .btn-wa{width:32px;height:32px;background:#25D366;border:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .btn-wa svg{fill:#fff;width:18px;height:18px}
-/* CATEGORIAS ARRIBA DERECHA - MISMO TAMAÑO */
 .cats{display:flex;gap:8px;align-items:center}
 .cat-btn{height:40px;padding:0 16px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;color:#111;font-weight:800;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;text-decoration:none;white-space:nowrap}
 .cat-btn.active{background:#E10600;border-color:#E10600;color:#fff}
 .cat-btn .material-icons{font-size:18px}
-/* FILTROS REUBICADOS ABAJO DEL TOP */
-.filtros-bar{max-width:1150px;margin:12px auto 0;background:#fff;border:1px solid #eef0f3;border-radius:16px;padding:12px 16px;display:flex;align-items:center;gap:8px}
+.filtros-bar{max-width:1150px;margin:12px auto 0;background:#fff;border:1px solid #eef0f3;border-radius:16px;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .filtros-bar span{font-size:12px;font-weight:800;color:#6b7280}
 @media(max-width:850px){.top{flex-direction:column;align-items:flex-start;gap:12px}.cats{width:100%}.cat-btn{flex:1;padding:0 8px}}
 </style>
@@ -51,21 +49,20 @@ select{height:40px;border:1px solid #e5e7eb;border-radius:12px;padding:0 12px;fo
   </div>
   <div class="cats">
     <a class="cat-btn" href="estadisticas.html"><span class="material-icons">bar_chart</span> Estadísticas</a>
-    <a class="cat-btn active" href="presupuesto.html"><span class="material-icons">account_balance_wallet</span> Presupuesto</a>
     <a class="cat-btn" href="calendario.html"><span class="material-icons">calendar_month</span> Calendario</a>
   </div>
 </div>
 
-<div class="filtros-bar"><span>Filtros:</span><select id="mesFiltro" onchange="render()"><option value="todos">Todos</option></select><select id="yearFiltro" onchange="render()"><option value="2026">2026</option></select></div>
+<div class="filtros-bar"><span>Filtros:</span><select id="mesFiltro" onchange="render()"><option value="todos">Todos</option></select><select id="yearFiltro" onchange="render()"><option value="2026">2026</option></select><select id="repFiltro" onchange="render()"><option value="todos">Todos los repartidores</option></select></div>
 
 <div class="cards">
-  <div class="card"><div class="ico" style="background:#e0e7ff"><span class="material-icons" style="color:#4f46e5">payments</span></div><small>TOTAL MES - VALOR CLIENTES</small><b id="totalMes">$0</b><small id="countMes">0 servicios</small></div>
+  <div class="card" style="border-left:4px solid #4f46e5"><div class="ico" style="background:#e0e7ff"><span class="material-icons" style="color:#4f46e5">payments</span></div><small>INGRESOS QUE NOS HAN PAGADO LOS REPARTIDORES</small><b id="totalMes">$0</b><small id="countMes">0 servicios</small></div>
   <div class="card" style="border-left:4px solid #f59e0b"><div class="ico" style="background:#fef3c7"><span class="material-icons" style="color:#d97706">warning</span></div><small>CUANTO NOS DEBEN</small><b id="totalDeben" style="color:#d97706">$0</b><small>Estado = debe</small></div>
-  <div class="card" style="border-left:4px solid #16a34a"><div class="ico" style="background:#dcfce7"><span class="material-icons" style="color:#16a34a">savings</span></div><small>CUANTO EN CAJA</small><b id="totalCaja" style="color:#16a34a">$0</b><small>Estado = pagado</small></div>
+  <div class="card" style="border-left:4px solid #16a34a"><div class="ico" style="background:#dcfce7"><span class="material-icons" style="color:#16a34a">savings</span></div><small>CUANTO YA TENEMOS EN CAJA</small><b id="totalCaja" style="color:#16a34a">$0</b><small>Estado = pagado</small></div>
 </div>
 
 <div class="wrap">
-  <div class="card"><h3 style="font-size:13px;display:flex;align-items:center;gap:6px"><span class="material-icons">bar_chart</span> Ingresos por mes</h3><canvas id="chartMeses" height="240"></canvas></div>
+  <div class="card"><h3 style="font-size:13px;display:flex;align-items:center;gap:6px"><span class="material-icons">bar_chart</span> Ingresos por repartidor por mes</h3><canvas id="chartMeses" height="240"></canvas></div>
   <div class="card"><h3 style="font-size:13px;display:flex;align-items:center;gap:6px"><span class="material-icons">delivery_dining</span> Deuda por repartidor</h3><table class="table"><thead><tr><th>Repartidor</th><th>Mandado</th><th>Transp.</th><th>Total</th><th></th></tr></thead><tbody id="tablaRepartidores"></tbody></table></div>
 </div>
 
@@ -81,10 +78,20 @@ select{height:40px;border:1px solid #e5e7eb;border-radius:12px;padding:0 12px;fo
 const firebaseConfig = { apiKey: "AIzaSyAsRa2QW9-l3vuh_mWa0ZhJh6ZSPNRRIkM", authDomain: "registro-ventas-kigo.firebaseapp.com", databaseURL: "https://registro-ventas-kigo-default-rtdb.firebaseio.com", projectId: "registro-ventas-kigo", storageBucket: "registro-ventas-kigo.firebasestorage.app", messagingSenderId: "494693818399", appId: "1:494693818399:web:34312307ec5cd52190752a" };
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
-let ventasAll=[], chart=null;
+let ventasAll=[], chart=null, repartidoresDB={};
 
-db.ref('ventas').on('value', snap=>{
-  const data=snap.val()||{};
+// CORREGIDO - Tarifa real del repartidor, respeta el 0, y respeta la tarifa congelada del pedido
+function tarifaReal(v, esTransporte){
+  var cands = [v.tarifaCongelada, v.pago, v.pagaKigo, v.pagaKigoBase, v.tarifaKigo, v.tarifa, v.comision, v.pagoRepartidor];
+  for(var i=0;i<cands.length;i++){ if(cands[i]!=null && cands[i]!=='' && !isNaN(parseFloat(cands[i]))) return parseFloat(cands[i]); }
+  var rep = Object.values(repartidoresDB).find(r=> (r.nombre||'').trim().toLowerCase() === (v._repartidor||'').trim().toLowerCase());
+  if(rep){
+    var c2 = esTransporte ? [rep.precioTransporte, rep.tarifaTransporte, rep.tarifaT, rep.precioTrans, rep.tarifaTrans] : [rep.precioMandado, rep.tarifaMandado, rep.tarifaM, rep.precioMoto, rep.tarifaMoto];
+    for(var j=0;j<c2.length;j++){ if(c2[j]!=null && c2[j]!=='' && !isNaN(parseFloat(c2[j]))) return parseFloat(c2[j]); }
+  }
+  return esTransporte ? 10 : 5;
+}
+function procesarVentas(data){
   ventasAll=Object.keys(data).map(k=>{
     const v=data[k];
     const fecha = (v.fecha || v.fechaCreacion || v.date || new Date().toISOString().slice(0,10)).toString().slice(0,10);
@@ -99,42 +106,56 @@ db.ref('ventas').on('value', snap=>{
     const nombreRep = (v.repartidor || v.nombreRepartidor || v.repartidorNombre || v.nombre || 'Sin asignar').toString().trim();
     let raw = (v.tipoServicio || v.servicio || v.tipo || v.categoria || '').toString().toLowerCase();
     let esTransporte = raw.includes('trans');
-    let tarifaKigo = esTransporte ? 10 : 5;
     let estadoRaw = (v.estado || v.estadoPago || '').toString().toLowerCase();
     let esPagado = estadoRaw === 'pagado';
     let esDebe = !esPagado;
-    return { _fecha: fecha, _precioCliente: precioCliente, _repartidor: nombreRep, _rawServicio: raw || (esTransporte?'mototransporte':'motomandado'), _esTransporte: esTransporte, _esPagado: esPagado, _esDebe: esDebe, _tarifaKigo: tarifaKigo, _mes: fecha.slice(0,7) };
+    let obj = { _fecha: fecha, _precioCliente: precioCliente, _repartidor: nombreRep, _rawServicio: raw || (esTransporte?'mototransporte':'motomandado'), _esTransporte: esTransporte, _esPagado: esPagado, _esDebe: esDebe, _mes: fecha.slice(0,7) };
+    obj._tarifaKigo = tarifaReal(v, esTransporte);
+    return obj;
   });
   initFiltros(); render();
-});
+}
+db.ref('repartidores').on('value', s=>{ repartidoresDB=s.val()||{}; db.ref('ventas').once('value', snap=> procesarVentas(snap.val()||{})); });
+db.ref('ventas').on('value', snap=>{ procesarVentas(snap.val()||{}); });
 
 function initFiltros(){
   const meses=[...new Set(ventasAll.map(v=>v._mes))].filter(Boolean).sort().reverse();
   const sel=document.getElementById('mesFiltro');
+  const curMes=sel.value||'todos';
   sel.innerHTML='<option value="todos">Todos</option>';
   meses.forEach(m=>{ const op=document.createElement('option'); op.value=m; op.textContent=m; sel.appendChild(op); });
+  if(meses.includes(curMes)) sel.value=curMes;
+  const reps=[...new Set(ventasAll.map(v=>v._repartidor))].filter(Boolean).sort();
+  const selR=document.getElementById('repFiltro');
+  const curRep=selR.value||'todos';
+  selR.innerHTML='<option value="todos">Todos los repartidores</option>';
+  reps.forEach(r=>{ const op=document.createElement('option'); op.value=r; op.textContent=r; selR.appendChild(op); });
+  if(reps.includes(curRep)) selR.value=curRep;
 }
 
 function render(){
   const mesSel=document.getElementById('mesFiltro').value;
   const yearSel=document.getElementById('yearFiltro').value;
+  const repSel=document.getElementById('repFiltro').value;
   let filtradas=ventasAll.filter(v=> v._fecha.startsWith(yearSel));
   if(mesSel!=='todos') filtradas=filtradas.filter(v=> v._mes===mesSel);
-  const totalMesClientes=filtradas.reduce((s,v)=>s+v._precioCliente,0);
-  document.getElementById('totalMes').innerText='$'+totalMesClientes.toLocaleString('es-MX');
-  document.getElementById('countMes').innerText=filtradas.length+' servicios';
+  if(repSel!=='todos') filtradas=filtradas.filter(v=> v._repartidor===repSel);
+  const pagados=filtradas.filter(v=>v._esPagado);
+  const totalPagadoRep=pagados.reduce((s,v)=>s+v._tarifaKigo,0);
+  const totalPagadoCliente=pagados.reduce((s,v)=>s+v._precioCliente,0);
+  document.getElementById('totalMes').innerText='$'+totalPagadoRep.toLocaleString('es-MX');
+  document.getElementById('countMes').innerText=pagados.length+' servicios pagados - Clientes $'+totalPagadoCliente.toLocaleString('es-MX');
   const noPagados=filtradas.filter(v=>v._esDebe);
   const totalDeben=noPagados.reduce((s,v)=>s+v._tarifaKigo,0);
   document.getElementById('totalDeben').innerText='$'+totalDeben.toLocaleString('es-MX');
-  const pagados=filtradas.filter(v=>v._esPagado);
   const totalCaja=pagados.reduce((s,v)=>s+v._tarifaKigo,0);
   document.getElementById('totalCaja').innerText='$'+totalCaja.toLocaleString('es-MX');
-  renderRepartidores(filtradas); renderChart(); renderTabla(filtradas);
+  renderRepartidores(filtradas); renderChart(yearSel, repSel); renderTabla(filtradas);
 }
 
 function enviarResumenWA(rep, info){
   const total = info.mandados + info.transportes;
-  const msg = `*KIGO XPRESS - RESUMEN DEUDA*\n\n*Repartidor:* ${rep}\n\n*Moto Mandados:*\n${info.countM} servicios x $5 = $${info.mandados}\n\n*Moto Transporte:*\n${info.countT} servicios x $10 = $${info.transportes}\n\n*TOTAL A PAGAR:* $${total}\n\nPor favor confirmar pago.`;
+  const msg = `*KIGO XPRESS - RESUMEN DEUDA*\n\n*Repartidor:* ${rep}\n\n*Moto Mandados:*\n${info.countM} servicios = $${info.mandados}\n\n*Moto Transporte:*\n${info.countT} servicios = $${info.transportes}\n\n*TOTAL A PAGAR:* $${total}\n\nPor favor confirmar pago.`;
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
@@ -150,8 +171,8 @@ function renderRepartidores(lista){
     const total=info.mandados+info.transportes;
     tbody.innerHTML+=`<tr>
       <td><span class="material-icons" style="font-size:16px">person</span> ${rep}</td>
-      <td>${info.countM} x $5 = $${info.mandados}</td>
-      <td>${info.countT} x $10 = $${info.transportes}</td>
+      <td>${info.countM} x $${info.countM?Math.round(info.mandados/info.countM):0} = $${info.mandados}</td>
+      <td>${info.countT} x $${info.countT?Math.round(info.transportes/info.countT):0} = $${info.transportes}</td>
       <td style="color:#d97706">$${total}</td>
       <td><button class="btn-wa" onclick='enviarResumenWA(${JSON.stringify(rep)}, ${JSON.stringify(info)})'><svg viewBox="0 0 24 24"><path d="M19.05 4.94A9.9 9.9 0 0 0 12.03 2C6.5 2 2.03 6.47 2.03 12c0 1.76.46 3.48 1.34 5L2 22l5.18-1.36a9.9 9.9 0 0 0 4.85 1.24h.01c5.53 0 10-4.47 10-10 0-2.67-1.04-5.18-2.93-7.06l-.1-.88zM12.04 19.95h-.01a8.1 8.1 0 0 1-4.13-1.13l-.3-.18-3.07.81.82-3- .19-.31a8.1 8.1 0 0 1-1.25-4.34c0-4.47 3.64-8.11 8.12-8.11 2.17 0 4.21.85 5.74 2.38a8.07 8.07 0 0 1 2.38 5.73c0 4.47-3.64 8.11-8.11 8.11zm4.45-6.07c-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.93-1.19-.71-.63-1.19-1.41-1.33-1.65-.14-.24-.02-.37.1-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.2-.47-.4-.41-.54-.42h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.69 2.58 4.1 3.62.57.25 1.02.4 1.37.51.58.18 1.1.16 1.52.1.46-.07 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28z"/></svg></button></td>
     </tr>`;
@@ -159,13 +180,19 @@ function renderRepartidores(lista){
   if(!Object.keys(map).length) tbody.innerHTML='<tr><td colspan="5">Todo pagado</td></tr>';
 }
 
-function renderChart(){
-  const porMes={}; ventasAll.forEach(v=>{ porMes[v._mes]=(porMes[v._mes]||0)+v._precioCliente; });
-  const labels=Object.keys(porMes).sort(); const data=labels.map(l=>porMes[l]);
+function renderChart(yearSel, repSel){
+  const colores=['#E10600','#4f46e5','#16a34a','#f59e0b','#06b6d4','#ec4899','#8b5cf6','#111111'];
+  let base=ventasAll.filter(v=> v._fecha.startsWith(yearSel));
+  if(repSel && repSel!=='todos') base=base.filter(v=> v._repartidor===repSel);
+  const meses=[...new Set(base.map(v=>v._mes))].sort();
+  const reps=[...new Set(base.map(v=>v._repartidor))].sort();
+  const datasets=reps.map((rep,idx)=>{
+    return {label:rep, data:meses.map(m=> base.filter(v=>v._mes===m && v._repartidor===rep).reduce((s,v)=>s+v._tarifaKigo,0)), backgroundColor:colores[idx%colores.length], borderRadius:6};
+  });
   if(chart) chart.destroy();
   const ctx=document.getElementById('chartMeses');
-  if(labels.length===0) return;
-  chart=new Chart(ctx,{type:'bar',data:{labels:[...labels],datasets:[{label:'Total clientes',data:data,backgroundColor:'#E10600',borderRadius:8}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});
+  if(meses.length===0) return;
+  chart=new Chart(ctx,{type:'bar',data:{labels:[...meses],datasets:datasets},options:{plugins:{legend:{display:true, position:'bottom', labels:{boxWidth:12, font:{size:11}}}},scales:{y:{beginAtZero:true, stacked:true}, x:{stacked:true}}}});
 }
 
 function renderTabla(lista){
