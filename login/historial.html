@@ -44,7 +44,7 @@ body{background:#f5f5f5;zoom:0.88}
 </style>
 </head>
 <body>
-<div class="top"><div style="display:flex;gap:10px;align-items:center"><button class="btn-x" onclick="location.href='admin.html'">✕</button><div><div class="logo-text">Kigo <span class="red">X</span>press</div><div class="logo-sub">LA SOLUCIÓN A TU ALCANCE</div></div></div><div class="total-ped" id="totalPed">Total: 0</div></div>
+<div class="top"><div style="display:flex;gap:10px;align-items:center"><button class="btn-x" onclick="location.href='admin.html'">✕</button><div><div><div class="logo-text">Kigo <span class="red">X</span>press</div><div class="logo-sub">LA SOLUCIÓN A TU ALCANCE</div></div></div></div><div class="total-ped" id="totalPed">Total: 0</div></div>
 <div class="main">
 <div class="head-sec"><div><h1 style="font-size:14px;font-weight:800">Historial de pedidos</h1><p style="font-size:11px;color:#6b7280">Valor = servicio | Pago = tarifa congelada por pedido</p></div><button class="btn-buscar" style="background:#fff;color:#111;border:1px solid #e5e7eb" onclick="location.reload()">Actualizar</button></div>
 <div class="filters"><div class="inp-f"><input type="date" id="fIni"><input type="date" id="fFin" style="margin-left:4px;border-left:1px solid #eee;padding-left:6px"></div><div class="inp-f"><select id="fMes"><option value="">Mes</option><option value="1">Enero</option><option value="2">Feb</option><option value="3">Mar</option><option value="4">Abr</option><option value="5">May</option><option value="6">Jun</option><option value="7">Jul</option><option value="8">Ago</option><option value="9">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dic</option></select></div><div class="inp-f"><select id="fRepartidor"><option value="">Todos los repartidores</option></select></div><div class="search-box"><input id="fBuscar" placeholder="Buscar aliado..."></div><button class="btn-buscar" onclick="aplicarFiltros()">Buscar</button></div>
@@ -69,18 +69,14 @@ db.ref('repartidores').on('value', snap=>{
   poblarFiltroRepartidor();
   if(ventas.length>0) render();
 });
-
-// NUEVO - LLENAR FILTRO DE REPARTIDOR
 function poblarFiltroRepartidor(){
   const sel = document.getElementById('fRepartidor');
   if(!sel) return;
   const valorActual = sel.value;
   const nombres = new Set();
-  // 1. De la lista de repartidores registrados
   Object.values(repartidoresMap).forEach(r=>{
     if(r.nombre) nombres.add(r.nombre.trim());
   });
-  // 2. De los pedidos que ya existen, por si hay alguno que no está en repartidores
   ventas.forEach(v=>{
     if(v.repartidor) nombres.add(String(v.repartidor).trim());
   });
@@ -88,31 +84,34 @@ function poblarFiltroRepartidor(){
   sel.innerHTML = '<option value="">Todos los repartidores</option>' + lista.map(n=>`<option value="${n}">${n}</option>`).join('');
   if(lista.includes(valorActual)) sel.value = valorActual;
 }
-
+// CORREGIDO - LEE TODOS LOS NOMBRES DE PRECIO QUE USA REPARTIDORES / ADMIN
+function leerPrecioRep(rep, esTrans){
+  if(!rep) return null;
+  var cands = esTrans ? [rep.tarifaTransporte, rep.tarifaT, rep.precioTransporte, rep.tarifaTrans, rep.precioTrans] : [rep.tarifaMandado, rep.tarifaM, rep.precioMandado, rep.tarifaMoto, rep.precioMoto];
+  for(var i=0;i<cands.length;i++){ if(cands[i]!=null && cands[i]!=='' && !isNaN(parseFloat(cands[i]))) return parseFloat(cands[i]); }
+  return null;
+}
 function getTarifaCongelada(v){
-  if(v.tarifaCongelada!=null && v.tarifaCongelada!=='') return parseInt(v.tarifaCongelada);
-  if(v.pago>0) return parseInt(v.pago);
-  if(v.descuento>0) return parseInt(v.descuento);
-  const esTrans=(v.tipo||'').toLowerCase().includes('trans');
+  // 1. Si el pedido ya tiene tarifa congelada, esa manda y no cambia
+  if(v.tarifaCongelada!=null && v.tarifaCongelada!=='' && !isNaN(parseFloat(v.tarifaCongelada))) return parseFloat(v.tarifaCongelada);
+  // 2. Si admin lo guardó como pagaKigo / pagaKigoBase / pago, esa es su tarifa
+  if(v.pagaKigo!=null && v.pagaKigo!=='' && !isNaN(parseFloat(v.pagaKigo))) return parseFloat(v.pagaKigo);
+  if(v.pagaKigoBase!=null && v.pagaKigoBase!=='' && !isNaN(parseFloat(v.pagaKigoBase))) return parseFloat(v.pagaKigoBase);
+  if(v.pago!=null && v.pago!=='' && !isNaN(parseFloat(v.pago)) && parseFloat(v.pago)>0) return parseFloat(v.pago);
+  // 3. Pedido viejo sin tarifa guardada: usa el precio ACTUAL del repartidor
+  var actual = getTarifaActualParaNuevo(v.repartidor, v.tipo);
+  if(actual!=null) return actual;
+  var esTrans=(v.tipo||'').toLowerCase().includes('trans');
   return esTrans?10:5;
 }
-
 function getTarifaActualParaNuevo(nombreRepa, tipo){
   const key=(nombreRepa||'').toLowerCase().trim();
   const rep=repartidoresMap[key];
   const esTrans=(tipo||'').toLowerCase().includes('trans');
-  if(rep){
-    if(esTrans){
-      if(rep.tarifaTransporte!=null && rep.tarifaTransporte!=='') return parseInt(rep.tarifaTransporte);
-      if(rep.precioTransporte!=null && rep.precioTransporte!=='') return parseInt(rep.precioTransporte);
-    }else{
-      if(rep.tarifaMandado!=null && rep.tarifaMandado!=='') return parseInt(rep.tarifaMandado);
-      if(rep.precioMandado!=null && rep.precioMandado!=='') return parseInt(rep.precioMandado);
-    }
-  }
+  var p = leerPrecioRep(rep, esTrans);
+  if(p!=null) return p;
   return esTrans?10:5;
 }
-
 db.ref('ventas').on('value', snap=>{
  const val=snap.val()||{};
  const scrollLeft = document.getElementById('wrapTabla')?.scrollLeft || 0;
@@ -145,7 +144,6 @@ db.ref('ventas').on('value', snap=>{
  render();
  setTimeout(()=>{ const w=document.getElementById('wrapTabla'); if(w) w.scrollLeft=scrollLeft; window.scrollTo(0,scrollY); },20);
 });
-
 function aplicarFiltros(){
  const ini=fIni.value, fin=fFin.value, mes=fMes.value, bus=fBuscar.value.toLowerCase().trim();
  const repFiltro = (document.getElementById('fRepartidor')?.value || '').toLowerCase().trim();
@@ -158,7 +156,6 @@ function aplicarFiltros(){
  pagina=1; render();
 }
 function formatFecha(f){ if(!f) return ''; if(f.includes('-')){const [y,m,d]=f.split('-');return `${d}/${m}/${y}`;}return f;}
-
 function togglePago(id){
  const v=ventas.find(x=>x.id===id); if(!v) return;
  const isSi=v.yaPago===true || v.yaPago==='si' || v.yaPago==='Sí' || v.estado==='Pagado';
@@ -172,7 +169,6 @@ function togglePago(id){
  }
  setTimeout(()=>{ document.getElementById('wrapTabla').scrollLeft=scrollLeft; window.scrollTo(0,scrollY); },50);
 }
-
 function render(){
  const tbody=document.getElementById('tbody');
  if(!tbody) return;
