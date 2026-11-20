@@ -26,6 +26,8 @@ body{background:#f6f7f9;padding:14px;zoom:0.9}
 .chart-head h3{font-size:13px;display:flex;align-items:center;gap:6px}
 .chart-filtros{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .chart-filtros select{height:32px;font-size:11px;padding:0 8px;border-radius:10px;border:1px solid #e5e7eb;font-weight:800;background:#fff}
+.elegir{max-width:1150px;margin:0 auto 12px;background:#fff;border:2px solid #E10600;border-radius:16px;padding:16px;display:none}
+.elegir button{height:42px;padding:0 18px;border:none;border-radius:10px;background:#E10600;color:#fff;font-weight:800;cursor:pointer;margin:6px 6px 0 0}
 @media(max-width:600px){
   body{padding:10px 12px;zoom:1}
   .top{padding:12px;gap:10px}
@@ -49,6 +51,12 @@ body{background:#f6f7f9;padding:14px;zoom:0.9}
     <div style="min-width:0"><h1 style="font-size:18px;font-weight:800">Estadísticas</h1><p style="font-size:11px;color:#6b7280" id="pNombreTop">Panel del repartidor</p></div>
   </div>
   <div><b id="pNombre" style="font-size:14px">Repartidor</b><p style="font-size:11px;color:#6b7280" id="pUsuario"></p></div>
+</div>
+
+<div class="elegir" id="cajaElegir">
+  <h3 style="font-size:14px">¿Quién eres? Elige tu nombre</h3>
+  <p style="font-size:11px;color:#6b7280;margin-top:4px">No te encontró el login, elige tu nombre para ver tus estadísticas.</p>
+  <div id="botonesRepas"></div>
 </div>
 
 <div class="cards">
@@ -79,9 +87,6 @@ body{background:#f6f7f9;padding:14px;zoom:0.9}
 const firebaseConfig = { apiKey: "AIzaSyAsRa2QW9-l3vuh_mWa0ZhJh6ZSPNRRIkM", authDomain: "registro-ventas-kigo.firebaseapp.com", databaseURL: "https://registro-ventas-kigo-default-rtdb.firebaseio.com", projectId: "registro-ventas-kigo", storageBucket: "registro-ventas-kigo.firebasestorage.app", messagingSenderId: "494693818399", appId: "1:494693818399:web:34312307ec5cd52190752a" };
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
-// === CORREGIDO: BUSCAR AL REPARTIDOR POR LLAVE, POR USUARIO Y POR NOMBRE ===
-// En tu foto dice "Repartidor" porque kigo_repa_nombre venia vacio.
-// Ahora lee tambien kigo_repa_usuario y kigo_user que si guarda el login.
 let repartidorKey=localStorage.getItem('kigo_repa_key') || '';
 let repartidorNombre=localStorage.getItem('kigo_repa_nombre') || localStorage.getItem('kigo_nombre') || '';
 let repartidorUsuario=localStorage.getItem('kigo_repa_usuario') || localStorage.getItem('kigo_user') || '';
@@ -90,10 +95,7 @@ let gastosAll=[];
 let chartIngresos=null, chartEnvios=null, chartGastos=null;
 let mesRecienteAplicado=false;
 let repartidorResuelto=false;
-if(!repartidorKey && !repartidorNombre && !repartidorUsuario){
-  alert('Debes iniciar sesión desde el login');
-  window.location.href='index.html';
-}
+let listaRepas=[];
 function sinAcento(t){ return (t||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); }
 function fmt(n){ return '$'+Number(n).toLocaleString('es-MX'); }
 function ponerNombre(){
@@ -102,23 +104,39 @@ function ponerNombre(){
   document.getElementById('pUsuario').innerText=(repartidorNombre||repartidorUsuario) ? '@'+(repartidorUsuario||repartidorNombre) : '';
 }
 ponerNombre();
-// 1. Intentar directo por llave: repartidores / -P31UPuLAq4awJ4FVWm9
+// Si no te encontro en 2 segundos, mostrar botones para elegir tu nombre
+setTimeout(function(){
+  if(!repartidorResuelto){
+    db.ref('repartidores').once('value').then(function(snap){
+      const data=snap.val()||{};
+      listaRepas=Object.entries(data).map(function(pair){ return { key:pair[0], ...pair[1] }; });
+      const cont=document.getElementById('botonesRepas');
+      cont.innerHTML='';
+      listaRepas.forEach(function(r){
+        const b=document.createElement('button');
+        b.innerText=r.nombre||r.usuario||r.key;
+        b.onclick=function(){ elegirRepartidor(r.key, r); };
+        cont.appendChild(b);
+      });
+      document.getElementById('cajaElegir').style.display='block';
+    });
+  }
+}, 2000);
+function elegirRepartidor(key, r){
+  document.getElementById('cajaElegir').style.display='none';
+  usarRepartidor(key, r);
+}
 function resolverRepartidor(){
   if(repartidorResuelto) return;
-  // Si la llave si es una llave de Firebase (empieza con -), buscar directo
   if(repartidorKey && repartidorKey.charAt(0)==='-'){
     db.ref('repartidores/'+repartidorKey).once('value').then(function(s){
-      if(s.val()){
-        usarRepartidor(repartidorKey, s.val());
-      } else {
-        buscarRepartidorEnLista();
-      }
+      if(s.val()) usarRepartidor(repartidorKey, s.val());
+      else buscarRepartidorEnLista();
     }).catch(function(){ buscarRepartidorEnLista(); });
   } else {
     buscarRepartidorEnLista();
   }
 }
-// 2. Si la llave no es de Firebase, buscar en toda la lista por usuario o por nombre
 function buscarRepartidorEnLista(){
   if(repartidorResuelto) return;
   db.ref('repartidores').once('value').then(function(snap){
@@ -136,22 +154,17 @@ function buscarRepartidorEnLista(){
         encontradoKey=k; encontrado=r;
       }
     });
-    if(encontrado){
-      usarRepartidor(encontradoKey, encontrado);
-    } else {
-      // Si no lo encontro, igual intentar cargar con lo que haya guardado
-      repartidorResuelto=true;
-      cargarPedidos(); cargarGastos();
-    }
-  }).catch(function(){ repartidorResuelto=true; cargarPedidos(); cargarGastos(); });
+    if(encontrado) usarRepartidor(encontradoKey, encontrado);
+    // Si no lo encontro, esperar a que el usuario elija su nombre en el cuadrito
+  }).catch(function(){});
 }
 function usarRepartidor(key, r){
   if(repartidorResuelto) return;
   repartidorResuelto=true;
+  document.getElementById('cajaElegir').style.display='none';
   repartidorKey=key;
   repartidorNombre=r.nombre||repartidorNombre||repartidorUsuario;
   repartidorUsuario=r.usuario||repartidorUsuario||repartidorNombre;
-  // Guardar ya corregido para la proxima vez
   try{
     localStorage.setItem('kigo_repa_key', repartidorKey);
     localStorage.setItem('kigo_repa_nombre', repartidorNombre);
@@ -193,7 +206,6 @@ function actualizarVentas(lista, fuente){
   renderIngresos(); renderEnvios();
 }
 function cargarPedidos(){
-  // A. Solo tus pedidos: pedidos_repartidor / TU LLAVE REAL
   if(repartidorKey){
     db.ref('pedidos_repartidor/'+repartidorKey).on('value', function(snap){
       const data=snap.val()||{};
@@ -216,7 +228,6 @@ function cargarPedidos(){
       if(lista.length) actualizarVentas(lista, 'pedidos_mios');
     });
   }
-  // B. pedidos_repartidor general, filtrado por tu nombre / usuario
   db.ref('pedidos_repartidor').on('value', function(snap){
     const data=snap.val()||{};
     const nombre=sinAcento(repartidorNombre);
@@ -244,7 +255,6 @@ function cargarPedidos(){
     });
     if(lista.length) actualizarVentas(lista, 'pedidos_general');
   });
-  // C. ventas, por si acaso
   db.ref('ventas').on('value', function(snap){
     const data=snap.val()||{};
     const nombre=sinAcento(repartidorNombre);
@@ -288,7 +298,6 @@ function aplicarMesReciente(){
     document.getElementById('yearGastos').value=partes[0];
   }
 }
-// Primero resolver quien es, luego cargar
 resolverRepartidor();
 function filtrarPorYear(lista, yearSel, campoFecha){
   if(yearSel==='todos') return lista.slice();
