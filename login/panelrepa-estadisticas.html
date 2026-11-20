@@ -84,52 +84,62 @@ body{background:#f6f7f9;padding:14px;zoom:0.9}
 const firebaseConfig = { apiKey: "AIzaSyAsRa2QW9-l3vuh_mWa0ZhJh6ZSPNRRIkM", authDomain: "registro-ventas-kigo.firebaseapp.com", databaseURL: "https://registro-ventas-kigo-default-rtdb.firebaseio.com", projectId: "registro-ventas-kigo", storageBucket: "registro-ventas-kigo.firebasestorage.app", messagingSenderId: "494693818399", appId: "1:494693818399:web:34312307ec5cd52190752a" };
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
-// CORREGIDO - Entra de una vez con el nombre guardado, no espera a Firebase
+// === COPIADO EXACTO DE panelrepa.html - NO CAMBIAR EL ORDEN ===
+let repartidorActual=null;
 let repartidorKey=localStorage.getItem('kigo_repa_key');
-let repartidorNombre=localStorage.getItem('kigo_repa_nombre') || localStorage.getItem('kigo_nombre') || localStorage.getItem('kigo_repa_usuario') || '';
-let repartidorActual={ nombre: repartidorNombre };
-let yaInicio=false;
-if(!repartidorKey && !repartidorNombre){
+let repartidorNombre=localStorage.getItem('kigo_repa_nombre');
+let ventasAll=[];
+let gastosAll=[];
+let gastosRaw={};
+let chartIngresos=null, chartEnvios=null, chartGastos=null;
+if(!repartidorKey &&!repartidorNombre){
   alert('Debes iniciar sesión desde el login');
   window.location.href='index.html';
-} else {
-  iniciar();
-  cargarDatosRepartidor();
 }
-function cargarDatosRepartidor(){
-  if(repartidorKey){
-    db.ref('repartidores/'+repartidorKey).once('value').then(function(s){
-      if(s.val()){
-        repartidorActual=s.val();
-        if(!repartidorActual.nombre) repartidorActual.nombre=repartidorNombre;
-        if(repartidorActual.foto) document.getElementById('pAvatar').src=repartidorActual.foto;
-        document.getElementById('pNombre').innerText=repartidorActual.nombre||'Repartidor';
-        document.getElementById('pNombreTop').innerText='Panel de '+(repartidorActual.nombre||'Repartidor');
-        document.getElementById('pUsuario').innerText='@'+(repartidorActual.usuario||repartidorActual.nombre||'');
-        cargarVentas();
-      } else { buscarPorNombre(); }
-    }).catch(function(){ buscarPorNombre(); });
-  } else { buscarPorNombre(); }
+let renderTimer=null;
+function pedirRender(){
+  if(renderTimer) clearTimeout(renderTimer);
+  renderTimer=setTimeout(function(){ renderIngresos(); renderEnvios(); renderGastos(); }, 80);
+}
+function guardarCache(){
+  try{
+    if(repartidorKey) localStorage.setItem('kigo_cache_'+repartidorKey, JSON.stringify({ventas:ventasAll, gastos:gastosAll, t:Date.now()}));
+  }catch(e){}
+}
+function cargarCache(){
+  try{
+    if(!repartidorKey) return false;
+    var raw=localStorage.getItem('kigo_cache_'+repartidorKey);
+    if(!raw) return false;
+    var d=JSON.parse(raw);
+    if(!d || !d.ventas) return false;
+    ventasAll=d.ventas||[];
+    gastosAll=d.gastos||[];
+    renderIngresos(); renderEnvios(); renderGastos();
+    return true;
+  }catch(e){ return false; }
+}
+if(repartidorKey){
+  db.ref(`repartidores/${repartidorKey}`).once('value', s=>{
+    if(s.val()){ repartidorActual=s.val(); iniciar(); }
+    else buscarPorNombre();
+  });
+} else {
+  buscarPorNombre();
 }
 function buscarPorNombre(){
-  db.ref('repartidores').once('value').then(function(snap){
+  db.ref('repartidores').once('value', snap=>{
     const data=snap.val()||{};
     Object.keys(data).forEach(k=>{
       const r=data[k];
-      if((r.nombre||'').toLowerCase()===(repartidorNombre||'').toLowerCase()){ repartidorActual=r; repartidorKey=k; }
+      if((r.nombre||'').toLowerCase()=== (repartidorNombre||'').toLowerCase()){
+        repartidorActual=r; repartidorKey=k;
+      }
     });
-    if(repartidorActual && repartidorActual.foto) document.getElementById('pAvatar').src=repartidorActual.foto;
-    if(repartidorActual){
-      document.getElementById('pNombre').innerText=repartidorActual.nombre||repartidorNombre;
-      document.getElementById('pNombreTop').innerText='Panel de '+(repartidorActual.nombre||repartidorNombre);
-      document.getElementById('pUsuario').innerText='@'+(repartidorActual.usuario||repartidorActual.nombre||repartidorNombre);
-    }
-    cargarVentas(); cargarGastos();
-  }).catch(function(){});
+    if(repartidorActual) iniciar();
+  });
 }
 function iniciar(){
-  if(yaInicio) return;
-  yaInicio=true;
   document.getElementById('pNombre').innerText=repartidorActual.nombre||'Repartidor';
   document.getElementById('pNombreTop').innerText='Panel de '+(repartidorActual.nombre||'Repartidor');
   document.getElementById('pUsuario').innerText='@'+(repartidorActual.usuario||repartidorActual.nombre||'');
@@ -138,48 +148,35 @@ function iniciar(){
   cargarVentas();
   cargarGastos();
 }
-let ventasAll=[];
-let gastosAll=[];
-let chartIngresos=null, chartEnvios=null, chartGastos=null;
-function guardarCache(){
-  try{ if(repartidorKey) localStorage.setItem('kigo_cache_'+repartidorKey, JSON.stringify({ventas:ventasAll, gastos:gastosAll, t:Date.now()})); }catch(e){}
-}
-function cargarCache(){
-  try{
-    if(!repartidorKey) return;
-    var raw=localStorage.getItem('kigo_cache_'+repartidorKey);
-    if(!raw) return;
-    var d=JSON.parse(raw);
-    ventasAll=d.ventas||[]; gastosAll=d.gastos||[];
-    renderIngresos(); renderEnvios(); renderGastos();
-  }catch(e){}
-}
+// === cargarVentas y cargarGastos COPIADOS EXACTOS DE panelrepa.html ===
 function cargarVentas(){
   db.ref('ventas').on('value', snap=>{
     const data=snap.val()||{};
-    const nombre=(repartidorActual.nombre||repartidorNombre||'').toLowerCase().trim();
+    const nombre=(repartidorActual.nombre||'').toLowerCase();
     ventasAll=Object.values(data).filter(v=>{
-      const rep=(v.repartidor||v.nombreRepartidor||v.nombre||'').toLowerCase().trim();
-      return rep===nombre || rep.includes(nombre) || (nombre && nombre.includes(rep));
+      const rep=(v.repartidor||v.nombreRepartidor||'').toLowerCase();
+      return rep===nombre || rep.includes(nombre);
     }).map(v=>{
       let raw=(v.tipoServicio||v.servicio||v.tipo||'').toString().toLowerCase();
       let esTrans=raw.includes('trans');
       let tarifa=esTrans?10:5;
+      let estado=(v.estado||'').toLowerCase();
       let precioCliente=parseFloat(v.precio||v.total||v.valor||0)||0;
       let fechaStr=(v.fecha||'').slice(0,10);
       let mes=fechaStr.slice(0,7);
       let ganancia=precioCliente - tarifa;
-      return {...v, _esTrans:esTrans, _tarifa:tarifa, _precioCli:precioCliente, _fecha:fechaStr, _mes:mes, _ganancia:ganancia};
+      return {...v, _esTrans:esTrans, _tarifa:tarifa, _estado:estado, _precioCli:precioCliente, _fecha:fechaStr, _mes:mes, _ganancia:ganancia};
     });
-    guardarCache(); renderIngresos(); renderEnvios();
+    guardarCache();
+    pedirRender();
   });
 }
 function cargarGastos(){
-  if(!repartidorKey) return;
-  db.ref('gastos/'+repartidorKey).on('value', snap=>{
-    const data=snap.val()||{};
-    gastosAll=Object.entries(data).map(([id,g])=>({ id, ...g, _mes:(g.fecha||'').slice(0,7) || g.mes || '' }));
-    guardarCache(); renderGastos();
+  db.ref(`gastos/${repartidorKey}`).on('value', snap=>{
+    gastosRaw=snap.val()||{};
+    gastosAll=Object.entries(gastosRaw).map(([id,g])=>({ id, ...g, _mes:(g.fecha||'').slice(0,7) || g.mes || '' }));
+    guardarCache();
+    pedirRender();
   });
 }
 function fmt(n){ return '$'+Number(n).toLocaleString('es-MX'); }
