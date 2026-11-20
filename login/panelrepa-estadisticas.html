@@ -27,6 +27,7 @@ body{background:#f6f7f9;padding:14px;zoom:0.9}
 .chart-filtros{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .chart-filtros select{height:32px;font-size:11px;padding:0 8px;border-radius:10px;border:1px solid #e5e7eb;font-weight:800;background:#fff}
 .avatar{width:40px;height:40px;border-radius:12px;object-fit:cover;background:#eee}
+.debug{max-width:1150px;margin:0 auto 10px;background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;padding:10px 12px;font-size:11px;font-weight:700;color:#92400e}
 @media(max-width:600px){
   body{padding:10px 12px;zoom:1}
   .top{padding:12px;gap:10px}
@@ -56,6 +57,8 @@ body{background:#f6f7f9;padding:14px;zoom:0.9}
   </div>
 </div>
 
+<div class="debug" id="debugLine">Cargando datos de Firebase...</div>
+
 <div class="cards">
   <div class="card" style="border-left:4px solid #16a34a"><div class="ico" style="background:#dcfce7"><span class="material-icons" style="color:#16a34a">payments</span></div><small>MIS INGRESOS - GANANCIA</small><b id="totalIngresos" style="color:#16a34a">$0</b><small id="totalIngresosDet">Con los filtros de la gráfica de ingresos</small></div>
   <div class="card" style="border-left:4px solid #4f46e5"><div class="ico" style="background:#e0e7ff"><span class="material-icons" style="color:#4f46e5">two_wheeler</span></div><small>MIS ENVÍOS</small><b id="totalEnvios">0</b><small id="totalEnviosDet">Con el filtro de año de envíos</small></div>
@@ -66,7 +69,7 @@ body{background:#f6f7f9;padding:14px;zoom:0.9}
   <div class="card" style="min-width:0">
     <div class="chart-head"><h3><span class="material-icons">payments</span> Mis ingresos por mes</h3><div class="chart-filtros"><select id="mesIngresos" onchange="renderIngresos()"><option value="todos">Todos los meses</option><option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option><option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option><option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select><select id="yearIngresos" onchange="renderIngresos()"><option value="todos" selected>Todos los años</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option></select></div></div>
     <canvas id="chartIngresos" height="260"></canvas>
-    <p style="font-size:11px;color:#6b7280;margin-top:8px">Ganancia: lo que pagó el cliente menos la tarifa Kigo.</p>
+    <p style="font-size:11px;color:#6b7280;margin-top:8px">Ganancia: lo que ya viene en Firebase como ganancia.</p>
   </div>
   <div class="card" style="min-width:0">
     <div class="chart-head"><h3><span class="material-icons">two_wheeler</span> Mis envíos por mes</h3><div class="chart-filtros"><select id="yearEnvios" onchange="renderEnvios()"><option value="todos" selected>Todos los años</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option></select></div></div>
@@ -84,7 +87,7 @@ body{background:#f6f7f9;padding:14px;zoom:0.9}
 const firebaseConfig = { apiKey: "AIzaSyAsRa2QW9-l3vuh_mWa0ZhJh6ZSPNRRIkM", authDomain: "registro-ventas-kigo.firebaseapp.com", databaseURL: "https://registro-ventas-kigo-default-rtdb.firebaseio.com", projectId: "registro-ventas-kigo", storageBucket: "registro-ventas-kigo.firebasestorage.app", messagingSenderId: "494693818399", appId: "1:494693818399:web:34312307ec5cd52190752a" };
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
-// === COPIADO EXACTO DE panelrepa.html - NO CAMBIAR EL ORDEN ===
+// === MISMO INICIO QUE panelrepa.html ===
 let repartidorActual=null;
 let repartidorKey=localStorage.getItem('kigo_repa_key');
 let repartidorNombre=localStorage.getItem('kigo_repa_nombre');
@@ -92,14 +95,20 @@ let ventasAll=[];
 let gastosAll=[];
 let gastosRaw={};
 let chartIngresos=null, chartEnvios=null, chartGastos=null;
+let totalVentasFirebase=0;
 if(!repartidorKey &&!repartidorNombre){
   alert('Debes iniciar sesión desde el login');
   window.location.href='index.html';
 }
+// CORREGIDO - Quitar acentos: Jose = José, y comparar sin mayúsculas
+function sinAcento(t){ return (t||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); }
+function actualizarDebug(){
+  document.getElementById('debugLine').innerText='Repartidor: '+(repartidorActual?repartidorActual.nombre:repartidorNombre)+' | Ventas en Firebase: '+totalVentasFirebase+' | Ventas filtradas para ti: '+ventasAll.length+' | Gastos: '+gastosAll.length;
+}
 let renderTimer=null;
 function pedirRender(){
   if(renderTimer) clearTimeout(renderTimer);
-  renderTimer=setTimeout(function(){ renderIngresos(); renderEnvios(); renderGastos(); }, 80);
+  renderTimer=setTimeout(function(){ renderIngresos(); renderEnvios(); renderGastos(); actualizarDebug(); }, 80);
 }
 function guardarCache(){
   try{
@@ -115,7 +124,7 @@ function cargarCache(){
     if(!d || !d.ventas) return false;
     ventasAll=d.ventas||[];
     gastosAll=d.gastos||[];
-    renderIngresos(); renderEnvios(); renderGastos();
+    renderIngresos(); renderEnvios(); renderGastos(); actualizarDebug();
     return true;
   }catch(e){ return false; }
 }
@@ -132,7 +141,7 @@ function buscarPorNombre(){
     const data=snap.val()||{};
     Object.keys(data).forEach(k=>{
       const r=data[k];
-      if((r.nombre||'').toLowerCase()=== (repartidorNombre||'').toLowerCase()){
+      if(sinAcento(r.nombre)===sinAcento(repartidorNombre)){
         repartidorActual=r; repartidorKey=k;
       }
     });
@@ -148,23 +157,28 @@ function iniciar(){
   cargarVentas();
   cargarGastos();
 }
-// === cargarVentas y cargarGastos COPIADOS EXACTOS DE panelrepa.html ===
+// === CORREGIDO SEGUN TU FIREBASE: repartidor, fecha, precio, ganancia, tipo moto ===
 function cargarVentas(){
   db.ref('ventas').on('value', snap=>{
     const data=snap.val()||{};
-    const nombre=(repartidorActual.nombre||'').toLowerCase();
+    totalVentasFirebase=Object.keys(data).length;
+    const nombre=sinAcento(repartidorActual.nombre||repartidorNombre);
     ventasAll=Object.values(data).filter(v=>{
-      const rep=(v.repartidor||v.nombreRepartidor||'').toLowerCase();
-      return rep===nombre || rep.includes(nombre);
+      const rep=sinAcento(v.repartidor||v.nombreRepartidor||v.nombre||'');
+      // Coincide si es igual, o si uno contiene al otro: Jose = Jose, Jose = Jose Angel
+      return rep===nombre || rep.includes(nombre) || (nombre && nombre.includes(rep));
     }).map(v=>{
       let raw=(v.tipoServicio||v.servicio||v.tipo||'').toString().toLowerCase();
+      // En tu Firebase tipo es "moto" = mandado, "transporte" / "trans" = transporte
       let esTrans=raw.includes('trans');
-      let tarifa=esTrans?10:5;
+      let tarifa=parseFloat(v.tarifaAplicada||v.tarifaCongelada||v.pagaKigo||v.pagaKigoBase||v.pago|| (esTrans?10:5))|| (esTrans?10:5);
       let estado=(v.estado||'').toLowerCase();
+      // En tu Firebase precio es 45, ganancia ya viene como 40
       let precioCliente=parseFloat(v.precio||v.total||v.valor||0)||0;
+      let ganancia=parseFloat(v.ganancia);
+      if(isNaN(ganancia)) ganancia=precioCliente - tarifa;
       let fechaStr=(v.fecha||'').slice(0,10);
       let mes=fechaStr.slice(0,7);
-      let ganancia=precioCliente - tarifa;
       return {...v, _esTrans:esTrans, _tarifa:tarifa, _estado:estado, _precioCli:precioCliente, _fecha:fechaStr, _mes:mes, _ganancia:ganancia};
     });
     guardarCache();
@@ -175,6 +189,28 @@ function cargarGastos(){
   db.ref(`gastos/${repartidorKey}`).on('value', snap=>{
     gastosRaw=snap.val()||{};
     gastosAll=Object.entries(gastosRaw).map(([id,g])=>({ id, ...g, _mes:(g.fecha||'').slice(0,7) || g.mes || '' }));
+    // Si en gastos/key no hay nada, buscar en gastos general por nombre del repartidor
+    if(!gastosAll.length){
+      db.ref('gastos').once('value', s2=>{
+        const todo=s2.val()||{};
+        let encontrados=[];
+        Object.keys(todo).forEach(k=>{
+          const grupo=todo[k];
+          if(grupo && typeof grupo==='object'){
+            Object.entries(grupo).forEach(([id,g])=>{
+              if(g && typeof g==='object'){
+                if(!g.repartidor || sinAcento(g.repartidor)===sinAcento(repartidorActual.nombre||repartidorNombre) || sinAcento(g.repartidor).includes(sinAcento(repartidorActual.nombre||repartidorNombre))){
+                  encontrados.push({ id, ...g, _mes:(g.fecha||'').slice(0,7) || g.mes || '' });
+                }
+              }
+            });
+          }
+        });
+        // Solo usar el fallback si el grupo es de este repartidor, si no dejar vacío para no mezclar
+        if(encontrados.length && Object.keys(todo).length===1) gastosAll=encontrados;
+        guardarCache(); pedirRender();
+      });
+    }
     guardarCache();
     pedirRender();
   });
