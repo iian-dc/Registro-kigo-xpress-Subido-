@@ -37,6 +37,9 @@ select{height:40px;border:1px solid #e5e7eb;border-radius:12px;padding:0 12px;fo
 .cat-btn .material-icons{font-size:18px}
 .filtros-bar{max-width:1150px;margin:12px auto 0;background:#fff;border:1px solid #eef0f3;border-radius:16px;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .filtros-bar span{font-size:12px;font-weight:800;color:#6b7280}
+.chart-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.chart-filtros{display:flex;gap:6px;align-items:center}
+.chart-filtros select{height:32px;font-size:11px;padding:0 8px;border-radius:10px}
 @media(max-width:850px){.top{flex-direction:column;align-items:flex-start;gap:12px}.cats{width:100%}.cat-btn{flex:1;padding:0 8px}}
 </style>
 </head>
@@ -62,7 +65,7 @@ select{height:40px;border:1px solid #e5e7eb;border-radius:12px;padding:0 12px;fo
 </div>
 
 <div class="wrap">
-  <div class="card"><h3 style="font-size:13px;display:flex;align-items:center;gap:6px"><span class="material-icons">bar_chart</span> Ingresos por repartidor por mes</h3><canvas id="chartMeses" height="240"></canvas></div>
+  <div class="card"><div class="chart-head"><h3 style="font-size:13px;display:flex;align-items:center;gap:6px"><span class="material-icons">bar_chart</span> Ingresos por repartidor por mes</h3><div class="chart-filtros"><select id="mesChart" onchange="renderChart()"><option value="todos">Todos los meses</option><option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option><option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option><option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select><select id="yearChart" onchange="renderChart()"><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option></select></div></div><canvas id="chartMeses" height="240"></canvas></div>
   <div class="card"><h3 style="font-size:13px;display:flex;align-items:center;gap:6px"><span class="material-icons">delivery_dining</span> Deuda por repartidor</h3><table class="table"><thead><tr><th>Repartidor</th><th>Mandado</th><th>Transp.</th><th>Total</th><th></th></tr></thead><tbody id="tablaRepartidores"></tbody></table></div>
 </div>
 
@@ -79,8 +82,6 @@ const firebaseConfig = { apiKey: "AIzaSyAsRa2QW9-l3vuh_mWa0ZhJh6ZSPNRRIkM", auth
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 let ventasAll=[], chart=null, repartidoresDB={};
-
-// CORREGIDO - Tarifa real del repartidor, respeta el 0, y respeta la tarifa congelada del pedido
 function tarifaReal(v, esTransporte){
   var cands = [v.tarifaCongelada, v.pago, v.pagaKigo, v.pagaKigoBase, v.tarifaKigo, v.tarifa, v.comision, v.pagoRepartidor];
   for(var i=0;i<cands.length;i++){ if(cands[i]!=null && cands[i]!=='' && !isNaN(parseFloat(cands[i]))) return parseFloat(cands[i]); }
@@ -117,7 +118,6 @@ function procesarVentas(data){
 }
 db.ref('repartidores').on('value', s=>{ repartidoresDB=s.val()||{}; db.ref('ventas').once('value', snap=> procesarVentas(snap.val()||{})); });
 db.ref('ventas').on('value', snap=>{ procesarVentas(snap.val()||{}); });
-
 function initFiltros(){
   const meses=[...new Set(ventasAll.map(v=>v._mes))].filter(Boolean).sort().reverse();
   const sel=document.getElementById('mesFiltro');
@@ -132,7 +132,6 @@ function initFiltros(){
   reps.forEach(r=>{ const op=document.createElement('option'); op.value=r; op.textContent=r; selR.appendChild(op); });
   if(reps.includes(curRep)) selR.value=curRep;
 }
-
 function render(){
   const mesSel=document.getElementById('mesFiltro').value;
   const yearSel=document.getElementById('yearFiltro').value;
@@ -150,15 +149,13 @@ function render(){
   document.getElementById('totalDeben').innerText='$'+totalDeben.toLocaleString('es-MX');
   const totalCaja=pagados.reduce((s,v)=>s+v._tarifaKigo,0);
   document.getElementById('totalCaja').innerText='$'+totalCaja.toLocaleString('es-MX');
-  renderRepartidores(filtradas); renderChart(yearSel, repSel); renderTabla(filtradas);
+  renderRepartidores(filtradas); renderChart(); renderTabla(filtradas);
 }
-
 function enviarResumenWA(rep, info){
   const total = info.mandados + info.transportes;
   const msg = `*KIGO XPRESS - RESUMEN DEUDA*\n\n*Repartidor:* ${rep}\n\n*Moto Mandados:*\n${info.countM} servicios = $${info.mandados}\n\n*Moto Transporte:*\n${info.countT} servicios = $${info.transportes}\n\n*TOTAL A PAGAR:* $${total}\n\nPor favor confirmar pago.`;
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
-
 function renderRepartidores(lista){
   const map={};
   lista.filter(v=>v._esDebe).forEach(v=>{
@@ -179,22 +176,28 @@ function renderRepartidores(lista){
   });
   if(!Object.keys(map).length) tbody.innerHTML='<tr><td colspan="5">Todo pagado</td></tr>';
 }
-
-function renderChart(yearSel, repSel){
-  const colores=['#E10600','#4f46e5','#16a34a','#f59e0b','#06b6d4','#ec4899','#8b5cf6','#111111'];
+function renderChart(){
+  const yearSel=document.getElementById('yearChart') ? document.getElementById('yearChart').value : '2026';
+  const mesSel=document.getElementById('mesChart') ? document.getElementById('mesChart').value : 'todos';
+  const colores=['#E10600','#4f46e5','#16a34a','#f59e0b','#06b6d4','#ec4899','#8b5cf6','#111111','#0ea5e9','#84cc16'];
   let base=ventasAll.filter(v=> v._fecha.startsWith(yearSel));
-  if(repSel && repSel!=='todos') base=base.filter(v=> v._repartidor===repSel);
-  const meses=[...new Set(base.map(v=>v._mes))].sort();
+  let meses;
+  if(mesSel!=='todos'){
+    const mesClave = yearSel+'-'+mesSel;
+    base=base.filter(v=> v._mes===mesClave);
+    meses=[mesClave];
+  } else {
+    meses=[...new Set(base.map(v=>v._mes))].sort();
+  }
   const reps=[...new Set(base.map(v=>v._repartidor))].sort();
   const datasets=reps.map((rep,idx)=>{
-    return {label:rep, data:meses.map(m=> base.filter(v=>v._mes===m && v._repartidor===rep).reduce((s,v)=>s+v._tarifaKigo,0)), backgroundColor:colores[idx%colores.length], borderRadius:6};
+    return {label:rep, data:meses.map(m=> base.filter(v=>v._mes===m && v._repartidor===rep).reduce((s,v)=>s+v._tarifaKigo,0)), backgroundColor:colores[idx%colores.length], borderRadius:4, barPercentage:0.7, categoryPercentage:0.8, maxBarThickness:22};
   });
   if(chart) chart.destroy();
   const ctx=document.getElementById('chartMeses');
-  if(meses.length===0) return;
-  chart=new Chart(ctx,{type:'bar',data:{labels:[...meses],datasets:datasets},options:{plugins:{legend:{display:true, position:'bottom', labels:{boxWidth:12, font:{size:11}}}},scales:{y:{beginAtZero:true, stacked:true}, x:{stacked:true}}}});
+  if(meses.length===0 || reps.length===0) return;
+  chart=new Chart(ctx,{type:'bar',data:{labels:[...meses],[STRIPPED] position:'bottom', labels:{boxWidth:12, font:{size:11}}}},scales:{y:{beginAtZero:true, stacked:false}, x:{stacked:false, grid:{display:false}}}}});
 }
-
 function renderTabla(lista){
   const tbody=document.getElementById('tablaVentas'); tbody.innerHTML='';
   lista.sort((a,b)=> b._fecha.localeCompare(a._fecha)).slice(0,300).forEach(v=>{
