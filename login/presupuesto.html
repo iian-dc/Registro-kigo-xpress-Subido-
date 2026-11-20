@@ -169,7 +169,8 @@ function renderChart(){
   var yearSel=document.getElementById('yearChart') ? document.getElementById('yearChart').value : '2026';
   var mesSel=document.getElementById('mesChart') ? document.getElementById('mesChart').value : 'todos';
   var colores=['#E10600','#4f46e5','#16a34a','#f59e0b','#06b6d4','#ec4899','#8b5cf6','#111111','#0ea5e9','#84cc16'];
-  var base=ventasAll.filter(function(v){ return v._fecha.indexOf(yearSel)===0; });
+  // CORREGIDO - Grafica SOLO lo que ya nos han pagado, los que deben NO se suman ni se muestran
+  var base=ventasAll.filter(function(v){ return v._fecha.indexOf(yearSel)===0 && v._esPagado; });
   var meses=[];
   if(mesSel!=='todos'){
     var mesClave = yearSel+'-'+mesSel;
