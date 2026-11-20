@@ -79,45 +79,96 @@ body{background:#f6f7f9;padding:14px;zoom:0.9}
 const firebaseConfig = { apiKey: "AIzaSyAsRa2QW9-l3vuh_mWa0ZhJh6ZSPNRRIkM", authDomain: "registro-ventas-kigo.firebaseapp.com", databaseURL: "https://registro-ventas-kigo-default-rtdb.firebaseio.com", projectId: "registro-ventas-kigo", storageBucket: "registro-ventas-kigo.firebasestorage.app", messagingSenderId: "494693818399", appId: "1:494693818399:web:34312307ec5cd52190752a" };
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
-// === QUIEN ES EL REPARTIDOR - IGUAL QUE panelrepa.html ===
-let repartidorKey=localStorage.getItem('kigo_repa_key');
-let repartidorNombre=localStorage.getItem('kigo_repa_nombre') || '';
+// === CORREGIDO: BUSCAR AL REPARTIDOR POR LLAVE, POR USUARIO Y POR NOMBRE ===
+// En tu foto dice "Repartidor" porque kigo_repa_nombre venia vacio.
+// Ahora lee tambien kigo_repa_usuario y kigo_user que si guarda el login.
+let repartidorKey=localStorage.getItem('kigo_repa_key') || '';
+let repartidorNombre=localStorage.getItem('kigo_repa_nombre') || localStorage.getItem('kigo_nombre') || '';
+let repartidorUsuario=localStorage.getItem('kigo_repa_usuario') || localStorage.getItem('kigo_user') || '';
 let ventasAll=[];
 let gastosAll=[];
 let chartIngresos=null, chartEnvios=null, chartGastos=null;
 let mesRecienteAplicado=false;
-if(!repartidorKey && !repartidorNombre){
+let repartidorResuelto=false;
+if(!repartidorKey && !repartidorNombre && !repartidorUsuario){
   alert('Debes iniciar sesión desde el login');
   window.location.href='index.html';
 }
-function ponerNombre(nombre, usuario){
-  document.getElementById('pNombre').innerText=nombre||'Repartidor';
-  document.getElementById('pNombreTop').innerText='Panel de '+(nombre||'Repartidor');
-  document.getElementById('pUsuario').innerText=nombre ? '@'+(usuario||nombre) : '';
-}
-ponerNombre(repartidorNombre, repartidorNombre);
-if(repartidorKey){
-  db.ref('repartidores/'+repartidorKey).once('value').then(function(s){
-    if(s.val()){
-      repartidorNombre=s.val().nombre||repartidorNombre;
-      ponerNombre(repartidorNombre, s.val().usuario||repartidorNombre);
-    }
-  }).catch(function(){});
-}
 function sinAcento(t){ return (t||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); }
 function fmt(n){ return '$'+Number(n).toLocaleString('es-MX'); }
-// Convertir un pedido/venta a lo que usan las gráficas, sin importar como venga
+function ponerNombre(){
+  document.getElementById('pNombre').innerText=repartidorNombre||repartidorUsuario||'Repartidor';
+  document.getElementById('pNombreTop').innerText='Panel de '+(repartidorNombre||repartidorUsuario||'Repartidor');
+  document.getElementById('pUsuario').innerText=(repartidorNombre||repartidorUsuario) ? '@'+(repartidorUsuario||repartidorNombre) : '';
+}
+ponerNombre();
+// 1. Intentar directo por llave: repartidores / -P31UPuLAq4awJ4FVWm9
+function resolverRepartidor(){
+  if(repartidorResuelto) return;
+  // Si la llave si es una llave de Firebase (empieza con -), buscar directo
+  if(repartidorKey && repartidorKey.charAt(0)==='-'){
+    db.ref('repartidores/'+repartidorKey).once('value').then(function(s){
+      if(s.val()){
+        usarRepartidor(repartidorKey, s.val());
+      } else {
+        buscarRepartidorEnLista();
+      }
+    }).catch(function(){ buscarRepartidorEnLista(); });
+  } else {
+    buscarRepartidorEnLista();
+  }
+}
+// 2. Si la llave no es de Firebase, buscar en toda la lista por usuario o por nombre
+function buscarRepartidorEnLista(){
+  if(repartidorResuelto) return;
+  db.ref('repartidores').once('value').then(function(snap){
+    const data=snap.val()||{};
+    const buscaKey=sinAcento(repartidorKey);
+    const buscaNombre=sinAcento(repartidorNombre);
+    const buscaUsuario=sinAcento(repartidorUsuario);
+    let encontradoKey=null, encontrado=null;
+    Object.entries(data).forEach(function(pair){
+      const k=pair[0], r=pair[1]||{};
+      const n=sinAcento(r.nombre), u=sinAcento(r.usuario);
+      if((buscaKey && (k===repartidorKey || n===buscaKey || u===buscaKey)) ||
+         (buscaNombre && (n===buscaNombre || u===buscaNombre)) ||
+         (buscaUsuario && (n===buscaUsuario || u===buscaUsuario))){
+        encontradoKey=k; encontrado=r;
+      }
+    });
+    if(encontrado){
+      usarRepartidor(encontradoKey, encontrado);
+    } else {
+      // Si no lo encontro, igual intentar cargar con lo que haya guardado
+      repartidorResuelto=true;
+      cargarPedidos(); cargarGastos();
+    }
+  }).catch(function(){ repartidorResuelto=true; cargarPedidos(); cargarGastos(); });
+}
+function usarRepartidor(key, r){
+  if(repartidorResuelto) return;
+  repartidorResuelto=true;
+  repartidorKey=key;
+  repartidorNombre=r.nombre||repartidorNombre||repartidorUsuario;
+  repartidorUsuario=r.usuario||repartidorUsuario||repartidorNombre;
+  // Guardar ya corregido para la proxima vez
+  try{
+    localStorage.setItem('kigo_repa_key', repartidorKey);
+    localStorage.setItem('kigo_repa_nombre', repartidorNombre);
+    localStorage.setItem('kigo_repa_usuario', repartidorUsuario);
+  }catch(e){}
+  ponerNombre();
+  cargarPedidos(); cargarGastos();
+}
 function normalizarPedido(v, id){
   let raw=(v.tipoServicio||v.servicio||v.tipo||'').toString().toLowerCase();
   let esTrans=raw.includes('trans');
   let tarifa=parseFloat(v.tarifaAplicada||v.tarifaCongelada||v.tarifaM||v.tarifaT||v.pagaKigo||v.pagaKigoBase||v.pago|| (esTrans?10:5))|| (esTrans?10:5);
-  // Si es transporte usa tarifaT / 10, si es mandado usa tarifaM / 5
   if(esTrans && v.tarifaT) tarifa=parseFloat(v.tarifaT);
   if(!esTrans && v.tarifaM) tarifa=parseFloat(v.tarifaM);
   let precioCliente=parseFloat(v.precio||v.total||v.valor||v.precioCliente||0)||0;
   let ganancia=parseFloat(v.ganancia);
   if(isNaN(ganancia)) ganancia=precioCliente - tarifa;
-  // Fecha puede venir como "2026-08-27" o como numero 1791043155561
   let fechaStr='';
   if(v.fecha){
     if(typeof v.fecha==='number') fechaStr=new Date(v.fecha).toISOString().slice(0,10);
@@ -127,79 +178,10 @@ function normalizarPedido(v, id){
   }
   return {...v, _id:id||'', _esTrans:esTrans, _tarifa:tarifa, _precioCli:precioCliente, _fecha:fechaStr, _mes:fechaStr.slice(0,7), _ganancia:ganancia};
 }
-// === CORREGIDO: TUS PEDIDOS ESTAN EN pedidos_repartidor, NO EN ventas ===
-function cargarPedidos(){
-  // 1. pedidos_repartidor / TU LLAVE -> solo tus pedidos
-  if(repartidorKey){
-    db.ref('pedidos_repartidor/'+repartidorKey).on('value', function(snap){
-      const data=snap.val()||{};
-      let lista=[];
-      if(Array.isArray(data)){
-        lista=data.map(function(v,i){ return normalizarPedido(v, 'ped-'+i); });
-      } else {
-        lista=Object.entries(data).map(function(pair){ return normalizarPedido(pair[1], pair[0]); });
-      }
-      // Si dentro de tu llave hay otra carpeta con pedidos, abrirla tambien
-      lista=lista.filter(function(v){ return v._fecha; });
-      // Si no hay fecha, puede ser que data sea { pedidos: [...] } o { -Id: {...} }
-      if(!lista.length){
-        Object.values(data).forEach(function(grupo){
-          if(grupo && typeof grupo==='object'){
-            Object.entries(grupo).forEach(function(pair){
-              if(pair[1] && typeof pair[1]==='object' && (pair[1].fecha || pair[1].precio || pair[1].ganancia)) lista.push(normalizarPedido(pair[1], pair[0]));
-            });
-          }
-        });
-      }
-      if(lista.length) actualizarVentas(lista, 'pedidos_repartidor/'+repartidorKey);
-    });
-  }
-  // 2. pedidos_repartidor general -> buscar por tu nombre Jose
-  db.ref('pedidos_repartidor').on('value', function(snap){
-    const data=snap.val()||{};
-    const nombre=sinAcento(repartidorNombre);
-    let lista=[];
-    Object.entries(data).forEach(function(pairGrupo){
-      const grupo=pairGrupo[1];
-      if(!grupo || typeof grupo!=='object') return;
-      Object.entries(grupo).forEach(function(pair){
-        const v=pair[1];
-        if(!v || typeof v!=='object') return;
-        // Si el grupo ya es un pedido directo
-        if(v.fecha || v.precio || v.ganancia){
-          const rep=sinAcento(v.repartidor||v.nombreRepartidor||v.nombre||'');
-          if(!nombre || rep===nombre || rep.includes(nombre) || nombre.includes(rep) || pairGrupo[0]===repartidorKey) lista.push(normalizarPedido(v, pair[0]));
-        } else {
-          // Si hay otro nivel adentro
-          Object.entries(v).forEach(function(pair2){
-            const v2=pair2[1];
-            if(v2 && typeof v2==='object' && (v2.fecha || v2.precio || v2.ganancia)){
-              const rep=sinAcento(v2.repartidor||v2.nombreRepartidor||v2.nombre||'');
-              if(!nombre || rep===nombre || rep.includes(nombre) || nombre.includes(rep) || pairGrupo[0]===repartidorKey) lista.push(normalizarPedido(v2, pair2[0]));
-            }
-          });
-        }
-      });
-    });
-    if(lista.length) actualizarVentas(lista, 'pedidos_repartidor general');
-  });
-  // 3. ventas, por si algun dia se guarda ahi tambien
-  db.ref('ventas').on('value', function(snap){
-    const data=snap.val()||{};
-    const nombre=sinAcento(repartidorNombre);
-    let lista=Object.entries(data).map(function(pair){ return normalizarPedido(pair[1], pair[0]); }).filter(function(v){
-      const rep=sinAcento(v.repartidor||v.nombreRepartidor||v.nombre||'');
-      return !nombre || rep===nombre || rep.includes(nombre) || nombre.includes(rep);
-    }).filter(function(v){ return v._fecha; });
-    if(lista.length) actualizarVentas(lista, 'ventas');
-  });
-}
 let ventasPorFuente={};
 function actualizarVentas(lista, fuente){
   ventasPorFuente[fuente]=lista;
-  // Juntar todas las fuentes sin duplicar por id + fecha + precio
-  let juntas=[];
-  let vistos={};
+  let juntas=[]; let vistos={};
   Object.values(ventasPorFuente).forEach(function(arr){
     arr.forEach(function(v){
       let clave=(v._id||'')+'|'+v._fecha+'|'+v._precioCli+'|'+v._ganancia;
@@ -209,8 +191,70 @@ function actualizarVentas(lista, fuente){
   ventasAll=juntas.filter(function(v){ return v._fecha; });
   aplicarMesReciente();
   renderIngresos(); renderEnvios();
-  // Guardar igual que panelrepa para que la proxima vez ya venga listo
-  try{ if(repartidorKey) localStorage.setItem('kigo_cache_'+repartidorKey, JSON.stringify({ventas:ventasAll, gastos:gastosAll, t:Date.now()})); }catch(e){}
+}
+function cargarPedidos(){
+  // A. Solo tus pedidos: pedidos_repartidor / TU LLAVE REAL
+  if(repartidorKey){
+    db.ref('pedidos_repartidor/'+repartidorKey).on('value', function(snap){
+      const data=snap.val()||{};
+      let lista=[];
+      if(Array.isArray(data)){
+        lista=data.map(function(v,i){ return normalizarPedido(v, 'ped-'+i); });
+      } else {
+        Object.entries(data).forEach(function(pair){
+          const v=pair[1];
+          if(v && typeof v==='object' && (v.fecha || v.precio || v.ganancia)) lista.push(normalizarPedido(v, pair[0]));
+          else if(v && typeof v==='object'){
+            Object.entries(v).forEach(function(pair2){
+              const v2=pair2[1];
+              if(v2 && typeof v2==='object' && (v2.fecha || v2.precio || v2.ganancia)) lista.push(normalizarPedido(v2, pair2[0]));
+            });
+          }
+        });
+      }
+      lista=lista.filter(function(v){ return v._fecha; });
+      if(lista.length) actualizarVentas(lista, 'pedidos_mios');
+    });
+  }
+  // B. pedidos_repartidor general, filtrado por tu nombre / usuario
+  db.ref('pedidos_repartidor').on('value', function(snap){
+    const data=snap.val()||{};
+    const nombre=sinAcento(repartidorNombre);
+    const usuario=sinAcento(repartidorUsuario);
+    let lista=[];
+    Object.entries(data).forEach(function(pairGrupo){
+      const grupo=pairGrupo[1];
+      if(!grupo || typeof grupo!=='object') return;
+      Object.entries(grupo).forEach(function(pair){
+        const v=pair[1];
+        if(!v || typeof v!=='object') return;
+        if(v.fecha || v.precio || v.ganancia){
+          const rep=sinAcento(v.repartidor||v.nombreRepartidor||v.nombre||v.usuario||'');
+          if(pairGrupo[0]===repartidorKey || !nombre || rep===nombre || rep===usuario || rep.includes(nombre) || nombre.includes(rep)) lista.push(normalizarPedido(v, pair[0]));
+        } else {
+          Object.entries(v).forEach(function(pair2){
+            const v2=pair2[1];
+            if(v2 && typeof v2==='object' && (v2.fecha || v2.precio || v2.ganancia)){
+              const rep=sinAcento(v2.repartidor||v2.nombreRepartidor||v2.nombre||v2.usuario||'');
+              if(pairGrupo[0]===repartidorKey || !nombre || rep===nombre || rep===usuario || rep.includes(nombre) || nombre.includes(rep)) lista.push(normalizarPedido(v2, pair2[0]));
+            }
+          });
+        }
+      });
+    });
+    if(lista.length) actualizarVentas(lista, 'pedidos_general');
+  });
+  // C. ventas, por si acaso
+  db.ref('ventas').on('value', function(snap){
+    const data=snap.val()||{};
+    const nombre=sinAcento(repartidorNombre);
+    const usuario=sinAcento(repartidorUsuario);
+    let lista=Object.entries(data).map(function(pair){ return normalizarPedido(pair[1], pair[0]); }).filter(function(v){
+      const rep=sinAcento(v.repartidor||v.nombreRepartidor||v.nombre||v.usuario||'');
+      return !nombre || rep===nombre || rep===usuario || rep.includes(nombre) || nombre.includes(rep);
+    }).filter(function(v){ return v._fecha; });
+    if(lista.length) actualizarVentas(lista, 'ventas');
+  });
 }
 function cargarGastos(){
   if(!repartidorKey) return;
@@ -228,12 +272,6 @@ function cargarGastos(){
     aplicarMesReciente();
     renderGastos();
   });
-  // Tambien gastos general, por si estan ahi
-  db.ref('gastos').on('value', function(snap){
-    const data=snap.val()||{};
-    if(data && data[repartidorKey]) return; // Ya los tenemos arriba
-    // Si gastos no esta por llave, no tocar nada para no mezclar con otros repartidores
-  });
 }
 function aplicarMesReciente(){
   if(mesRecienteAplicado) return;
@@ -250,18 +288,8 @@ function aplicarMesReciente(){
     document.getElementById('yearGastos').value=partes[0];
   }
 }
-// Primero intentar con lo que dejo panelrepa, luego en tiempo real
-try{
-  if(repartidorKey){
-    var raw=localStorage.getItem('kigo_cache_'+repartidorKey);
-    if(raw){
-      var d=JSON.parse(raw);
-      if(d && d.ventas){ ventasAll=d.ventas||[]; gastosAll=d.gastos||[]; aplicarMesReciente(); renderIngresos(); renderEnvios(); renderGastos(); }
-    }
-  }
-}catch(e){}
-cargarPedidos();
-cargarGastos();
+// Primero resolver quien es, luego cargar
+resolverRepartidor();
 function filtrarPorYear(lista, yearSel, campoFecha){
   if(yearSel==='todos') return lista.slice();
   return lista.filter(function(v){ return (v[campoFecha]||'').indexOf(yearSel)===0; });
