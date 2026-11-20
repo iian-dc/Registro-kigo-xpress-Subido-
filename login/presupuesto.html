@@ -69,14 +69,6 @@ select{height:40px;border:1px solid #e5e7eb;border-radius:12px;padding:0 12px;fo
   <div class="card"><h3 style="font-size:13px;display:flex;align-items:center;gap:6px"><span class="material-icons">delivery_dining</span> Deuda por repartidor</h3><table class="table"><thead><tr><th>Repartidor</th><th>Mandado</th><th>Transp.</th><th>Total</th><th></th></tr></thead><tbody id="tablaRepartidores"></tbody></table></div>
 </div>
 
-<div class="card" style="max-width:1150px;margin:12px auto">
-  <h3 style="font-size:13px;display:flex;align-items:center;gap:6px"><span class="material-icons">receipt_long</span> Detalle por fecha</h3>
-  <table class="table">
-    <thead><tr><th>Fecha</th><th>Repartidor</th><th>Servicio</th><th>Valor Cliente</th><th>Tarifa Kigo</th><th>Estado</th></tr></thead>
-    <tbody id="tablaVentas"></tbody>
-  </table>
-</div>
-
 <script>
 const firebaseConfig = { apiKey: "AIzaSyAsRa2QW9-l3vuh_mWa0ZhJh6ZSPNRRIkM", authDomain: "registro-ventas-kigo.firebaseapp.com", databaseURL: "https://registro-ventas-kigo-default-rtdb.firebaseio.com", projectId: "registro-ventas-kigo", storageBucket: "registro-ventas-kigo.firebasestorage.app", messagingSenderId: "494693818399", appId: "1:494693818399:web:34312307ec5cd52190752a" };
 firebase.initializeApp(firebaseConfig);
@@ -93,10 +85,10 @@ function tarifaReal(v, esTransporte){
   return esTransporte ? 10 : 5;
 }
 function procesarVentas(data){
-  ventasAll=Object.keys(data).map(k=>{
-    const v=data[k];
-    const fecha = (v.fecha || v.fechaCreacion || v.date || new Date().toISOString().slice(0,10)).toString().slice(0,10);
-    let precioCliente = 0;
+  ventasAll=Object.keys(data).map(function(k){
+    var v=data[k];
+    var fecha = (v.fecha || v.fechaCreacion || v.date || new Date().toISOString().slice(0,10)).toString().slice(0,10);
+    var precioCliente = 0;
     if(v.precio) precioCliente = parseFloat(v.precio);
     else if(v.total) precioCliente = parseFloat(v.total);
     else if(v.valor) precioCliente = parseFloat(v.valor);
@@ -104,113 +96,102 @@ function procesarVentas(data){
     else if(v.valorServicio) precioCliente = parseFloat(v.valorServicio);
     else if(v.monto) precioCliente = parseFloat(v.monto);
     if(isNaN(precioCliente)) precioCliente=0;
-    const nombreRep = (v.repartidor || v.nombreRepartidor || v.repartidorNombre || v.nombre || 'Sin asignar').toString().trim();
-    let raw = (v.tipoServicio || v.servicio || v.tipo || v.categoria || '').toString().toLowerCase();
-    let esTransporte = raw.includes('trans');
-    let estadoRaw = (v.estado || v.estadoPago || '').toString().toLowerCase();
-    let esPagado = estadoRaw === 'pagado';
-    let esDebe = !esPagado;
-    let obj = { _fecha: fecha, _precioCliente: precioCliente, _repartidor: nombreRep, _rawServicio: raw || (esTransporte?'mototransporte':'motomandado'), _esTransporte: esTransporte, _esPagado: esPagado, _esDebe: esDebe, _mes: fecha.slice(0,7) };
+    var nombreRep = (v.repartidor || v.nombreRepartidor || v.repartidorNombre || v.nombre || 'Sin asignar').toString().trim();
+    var raw = (v.tipoServicio || v.servicio || v.tipo || v.categoria || '').toString().toLowerCase();
+    var esTransporte = raw.includes('trans');
+    var estadoRaw = (v.estado || v.estadoPago || '').toString().toLowerCase();
+    var esPagado = estadoRaw === 'pagado';
+    var esDebe = !esPagado;
+    var obj = { _fecha: fecha, _precioCliente: precioCliente, _repartidor: nombreRep, _rawServicio: raw || (esTransporte?'mototransporte':'motomandado'), _esTransporte: esTransporte, _esPagado: esPagado, _esDebe: esDebe, _mes: fecha.slice(0,7) };
     obj._tarifaKigo = tarifaReal(v, esTransporte);
     return obj;
   });
   initFiltros(); render();
 }
-db.ref('repartidores').on('value', s=>{ repartidoresDB=s.val()||{}; db.ref('ventas').once('value', snap=> procesarVentas(snap.val()||{})); });
-db.ref('ventas').on('value', snap=>{ procesarVentas(snap.val()||{}); });
+db.ref('repartidores').on('value', function(s){ repartidoresDB=s.val()||{}; render(); });
+db.ref('ventas').on('value', function(snap){ procesarVentas(snap.val()||{}); });
 function initFiltros(){
-  const meses=[...new Set(ventasAll.map(v=>v._mes))].filter(Boolean).sort().reverse();
-  const sel=document.getElementById('mesFiltro');
-  const curMes=sel.value||'todos';
+  var meses=[]; ventasAll.forEach(function(v){ if(v._mes && meses.indexOf(v._mes)===-1) meses.push(v._mes); }); meses.sort().reverse();
+  var sel=document.getElementById('mesFiltro');
+  var curMes=sel.value||'todos';
   sel.innerHTML='<option value="todos">Todos</option>';
-  meses.forEach(m=>{ const op=document.createElement('option'); op.value=m; op.textContent=m; sel.appendChild(op); });
-  if(meses.includes(curMes)) sel.value=curMes;
-  const reps=[...new Set(ventasAll.map(v=>v._repartidor))].filter(Boolean).sort();
-  const selR=document.getElementById('repFiltro');
-  const curRep=selR.value||'todos';
+  meses.forEach(function(m){ var op=document.createElement('option'); op.value=m; op.textContent=m; sel.appendChild(op); });
+  if(meses.indexOf(curMes)!==-1) sel.value=curMes;
+  var reps=[]; ventasAll.forEach(function(v){ if(v._repartidor && reps.indexOf(v._repartidor)===-1) reps.push(v._repartidor); }); reps.sort();
+  var selR=document.getElementById('repFiltro');
+  var curRep=selR.value||'todos';
   selR.innerHTML='<option value="todos">Todos los repartidores</option>';
-  reps.forEach(r=>{ const op=document.createElement('option'); op.value=r; op.textContent=r; selR.appendChild(op); });
-  if(reps.includes(curRep)) selR.value=curRep;
+  reps.forEach(function(r){ var op=document.createElement('option'); op.value=r; op.textContent=r; selR.appendChild(op); });
+  if(reps.indexOf(curRep)!==-1) selR.value=curRep;
 }
 function render(){
-  const mesSel=document.getElementById('mesFiltro').value;
-  const yearSel=document.getElementById('yearFiltro').value;
-  const repSel=document.getElementById('repFiltro').value;
-  let filtradas=ventasAll.filter(v=> v._fecha.startsWith(yearSel));
-  if(mesSel!=='todos') filtradas=filtradas.filter(v=> v._mes===mesSel);
-  if(repSel!=='todos') filtradas=filtradas.filter(v=> v._repartidor===repSel);
-  const pagados=filtradas.filter(v=>v._esPagado);
-  const totalPagadoRep=pagados.reduce((s,v)=>s+v._tarifaKigo,0);
-  const totalPagadoCliente=pagados.reduce((s,v)=>s+v._precioCliente,0);
+  var mesSel=document.getElementById('mesFiltro').value;
+  var yearSel=document.getElementById('yearFiltro').value;
+  var repSel=document.getElementById('repFiltro').value;
+  var filtradas=ventasAll.filter(function(v){ return v._fecha.indexOf(yearSel)===0; });
+  if(mesSel!=='todos') filtradas=filtradas.filter(function(v){ return v._mes===mesSel; });
+  if(repSel!=='todos') filtradas=filtradas.filter(function(v){ return v._repartidor===repSel; });
+  var pagados=filtradas.filter(function(v){ return v._esPagado; });
+  var totalPagadoRep=0; pagados.forEach(function(v){ totalPagadoRep+=v._tarifaKigo; });
+  var totalPagadoCliente=0; pagados.forEach(function(v){ totalPagadoCliente+=v._precioCliente; });
   document.getElementById('totalMes').innerText='$'+totalPagadoRep.toLocaleString('es-MX');
   document.getElementById('countMes').innerText=pagados.length+' servicios pagados - Clientes $'+totalPagadoCliente.toLocaleString('es-MX');
-  const noPagados=filtradas.filter(v=>v._esDebe);
-  const totalDeben=noPagados.reduce((s,v)=>s+v._tarifaKigo,0);
+  var noPagados=filtradas.filter(function(v){ return v._esDebe; });
+  var totalDeben=0; noPagados.forEach(function(v){ totalDeben+=v._tarifaKigo; });
   document.getElementById('totalDeben').innerText='$'+totalDeben.toLocaleString('es-MX');
-  const totalCaja=pagados.reduce((s,v)=>s+v._tarifaKigo,0);
+  var totalCaja=0; pagados.forEach(function(v){ totalCaja+=v._tarifaKigo; });
   document.getElementById('totalCaja').innerText='$'+totalCaja.toLocaleString('es-MX');
-  renderRepartidores(filtradas); renderChart(); renderTabla(filtradas);
+  renderRepartidores(filtradas); renderChart();
 }
 function enviarResumenWA(rep, info){
-  const total = info.mandados + info.transportes;
-  const msg = `*KIGO XPRESS - RESUMEN DEUDA*\n\n*Repartidor:* ${rep}\n\n*Moto Mandados:*\n${info.countM} servicios = $${info.mandados}\n\n*Moto Transporte:*\n${info.countT} servicios = $${info.transportes}\n\n*TOTAL A PAGAR:* $${total}\n\nPor favor confirmar pago.`;
-  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  var total = info.mandados + info.transportes;
+  var msg = '*KIGO XPRESS - RESUMEN DEUDA*\n\n*Repartidor:* ' + rep + '\n\n*Moto Mandados:*\n' + info.countM + ' servicios = $' + info.mandados + '\n\n*Moto Transporte:*\n' + info.countT + ' servicios = $' + info.transportes + '\n\n*TOTAL A PAGAR:* $' + total + '\n\nPor favor confirmar pago.';
+  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
 }
 function renderRepartidores(lista){
-  const map={};
-  lista.filter(v=>v._esDebe).forEach(v=>{
+  var map={};
+  lista.filter(function(v){ return v._esDebe; }).forEach(function(v){
     if(!map[v._repartidor]) map[v._repartidor]={mandados:0, transportes:0, countM:0, countT:0};
     if(v._esTransporte){ map[v._repartidor].transportes+=v._tarifaKigo; map[v._repartidor].countT++; }
     else { map[v._repartidor].mandados+=v._tarifaKigo; map[v._repartidor].countM++; }
   });
-  const tbody=document.getElementById('tablaRepartidores'); tbody.innerHTML='';
-  Object.entries(map).forEach(([rep,info])=>{
-    const total=info.mandados+info.transportes;
-    tbody.innerHTML+=`<tr>
-      <td><span class="material-icons" style="font-size:16px">person</span> ${rep}</td>
-      <td>${info.countM} x $${info.countM?Math.round(info.mandados/info.countM):0} = $${info.mandados}</td>
-      <td>${info.countT} x $${info.countT?Math.round(info.transportes/info.countT):0} = $${info.transportes}</td>
-      <td style="color:#d97706">$${total}</td>
-      <td><button class="btn-wa" onclick='enviarResumenWA(${JSON.stringify(rep)}, ${JSON.stringify(info)})'><svg viewBox="0 0 24 24"><path d="M19.05 4.94A9.9 9.9 0 0 0 12.03 2C6.5 2 2.03 6.47 2.03 12c0 1.76.46 3.48 1.34 5L2 22l5.18-1.36a9.9 9.9 0 0 0 4.85 1.24h.01c5.53 0 10-4.47 10-10 0-2.67-1.04-5.18-2.93-7.06l-.1-.88zM12.04 19.95h-.01a8.1 8.1 0 0 1-4.13-1.13l-.3-.18-3.07.81.82-3- .19-.31a8.1 8.1 0 0 1-1.25-4.34c0-4.47 3.64-8.11 8.12-8.11 2.17 0 4.21.85 5.74 2.38a8.07 8.07 0 0 1 2.38 5.73c0 4.47-3.64 8.11-8.11 8.11zm4.45-6.07c-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.93-1.19-.71-.63-1.19-1.41-1.33-1.65-.14-.24-.02-.37.1-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.2-.47-.4-.41-.54-.42h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.69 2.58 4.1 3.62.57.25 1.02.4 1.37.51.58.18 1.1.16 1.52.1.46-.07 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28z"/></svg></button></td>
-    </tr>`;
+  var tbody=document.getElementById('tablaRepartidores'); tbody.innerHTML='';
+  Object.keys(map).forEach(function(rep){
+    var info=map[rep];
+    var total=info.mandados+info.transportes;
+    var pm = info.countM ? Math.round(info.mandados/info.countM) : 0;
+    var pt = info.countT ? Math.round(info.transportes/info.countT) : 0;
+    tbody.innerHTML+='<tr><td><span class="material-icons" style="font-size:16px">person</span> ' + rep + '</td><td>' + info.countM + ' x $' + pm + ' = $' + info.mandados + '</td><td>' + info.countT + ' x $' + pt + ' = $' + info.transportes + '</td><td style="color:#d97706">$' + total + '</td><td><button class="btn-wa" onclick=\'enviarResumenWA(' + JSON.stringify(rep) + ', ' + JSON.stringify(info) + ')\'>WA</button></td></tr>';
   });
   if(!Object.keys(map).length) tbody.innerHTML='<tr><td colspan="5">Todo pagado</td></tr>';
 }
 function renderChart(){
-  const yearSel=document.getElementById('yearChart') ? document.getElementById('yearChart').value : '2026';
-  const mesSel=document.getElementById('mesChart') ? document.getElementById('mesChart').value : 'todos';
-  const colores=['#E10600','#4f46e5','#16a34a','#f59e0b','#06b6d4','#ec4899','#8b5cf6','#111111','#0ea5e9','#84cc16'];
-  let base=ventasAll.filter(v=> v._fecha.startsWith(yearSel));
-  let meses;
+  var yearSel=document.getElementById('yearChart') ? document.getElementById('yearChart').value : '2026';
+  var mesSel=document.getElementById('mesChart') ? document.getElementById('mesChart').value : 'todos';
+  var colores=['#E10600','#4f46e5','#16a34a','#f59e0b','#06b6d4','#ec4899','#8b5cf6','#111111','#0ea5e9','#84cc16'];
+  var base=ventasAll.filter(function(v){ return v._fecha.indexOf(yearSel)===0; });
+  var meses=[];
   if(mesSel!=='todos'){
-    const mesClave = yearSel+'-'+mesSel;
-    base=base.filter(v=> v._mes===mesClave);
+    var mesClave = yearSel+'-'+mesSel;
+    base=base.filter(function(v){ return v._mes===mesClave; });
     meses=[mesClave];
   } else {
-    meses=[...new Set(base.map(v=>v._mes))].sort();
+    base.forEach(function(v){ if(meses.indexOf(v._mes)===-1) meses.push(v._mes); }); meses.sort();
   }
-  const reps=[...new Set(base.map(v=>v._repartidor))].sort();
-  const datasets=reps.map((rep,idx)=>{
-    return {label:rep, data:meses.map(m=> base.filter(v=>v._mes===m && v._repartidor===rep).reduce((s,v)=>s+v._tarifaKigo,0)), backgroundColor:colores[idx%colores.length], borderRadius:4, barPercentage:0.7, categoryPercentage:0.8, maxBarThickness:22};
+  var reps=[];
+  base.forEach(function(v){ if(reps.indexOf(v._repartidor)===-1) reps.push(v._repartidor); }); reps.sort();
+  var datasets=reps.map(function(rep, idx){
+    var datos=meses.map(function(m){
+      var suma=0;
+      base.forEach(function(v){ if(v._mes===m && v._repartidor===rep) suma+=v._tarifaKigo; });
+      return suma;
+    });
+    return { label: rep, data: datos, backgroundColor: colores[idx % colores.length], borderRadius: 4, barPercentage: 0.7, categoryPercentage: 0.8, maxBarThickness: 22 };
   });
   if(chart) chart.destroy();
-  const ctx=document.getElementById('chartMeses');
+  var ctx=document.getElementById('chartMeses');
   if(meses.length===0 || reps.length===0) return;
-  chart=new Chart(ctx,{type:'bar',data:{labels:[...meses],[STRIPPED] position:'bottom', labels:{boxWidth:12, font:{size:11}}}},scales:{y:{beginAtZero:true, stacked:false}, x:{stacked:false, grid:{display:false}}}}});
-}
-function renderTabla(lista){
-  const tbody=document.getElementById('tablaVentas'); tbody.innerHTML='';
-  lista.sort((a,b)=> b._fecha.localeCompare(a._fecha)).slice(0,300).forEach(v=>{
-    const iconServ = v._esTransporte? 'local_shipping' : 'two_wheeler';
-    tbody.innerHTML+=`<tr>
-      <td><span class="material-icons" style="font-size:16px">event</span> ${v._fecha}</td>
-      <td><span class="material-icons" style="font-size:16px">person</span> ${v._repartidor}</td>
-      <td><span class="material-icons" style="font-size:16px">${iconServ}</span> ${v._rawServicio}</td>
-      <td>$${v._precioCliente}</td>
-      <td><span class="material-icons" style="font-size:16px">payments</span> $${v._tarifaKigo}</td>
-      <td><span class="badge ${v._esPagado?'pagado':'pendiente'}"><span class="material-icons" style="font-size:14px">${v._esPagado?'check_circle':'hourglass_empty'}</span> ${v._esPagado?'PAGADO':'DEBE'}</span></td>
-    </tr>`;
-  });
+  chart=new Chart(ctx, { type: 'bar', data: { labels: meses, datasets: datasets }, options: { responsive: true, plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }, scales: { y: { beginAtZero: true, stacked: false }, x: { stacked: false, grid: { display: false } } } } });
 }
 </script>
 </body>
