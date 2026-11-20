@@ -35,6 +35,9 @@ body{background:#f6f7f9}
 .badge{padding:4px 10px;border-radius:20px;font-size:10px;font-weight:800;display:inline-flex;align-items:center;gap:4px}
 .badge.pendiente{background:#fef3c7;color:#92400e}
 .badge.pagado{background:#dcfce7;color:#166534}
+.badge-servicio{padding:4px 10px;border-radius:20px;font-size:10px;font-weight:800;display:inline-flex;align-items:center;gap:4px;text-transform:uppercase}
+.badge-servicio.mandado{background:#E10600;color:#fff}
+.badge-servicio.transporte{background:#f59e0b;color:#fff}
 .inp{width:100%;height:40px;border:1px solid #e5e7eb;border-radius:10px;padding:0 12px;margin-top:8px;font-size:12px;font-weight:600;outline:none}
 .btn{width:100%;height:42px;border:none;border-radius:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;z-index:99}
@@ -152,6 +155,31 @@ if(!repartidorKey &&!repartidorNombre){
   alert('Debes iniciar sesión desde el login');
   window.location.href='index.html';
 }
+// CORREGIDO VELOCIDAD - Mostrar cache al instante y luego actualizar en fondo
+let renderTimer=null;
+function pedirRender(){
+  if(renderTimer) clearTimeout(renderTimer);
+  renderTimer=setTimeout(function(){ renderStats(); }, 80);
+}
+function guardarCache(){
+  try{
+    if(repartidorKey) localStorage.setItem('kigo_cache_'+repartidorKey, JSON.stringify({ventas:ventasAll, gastos:gastosAll, t:Date.now()}));
+  }catch(e){}
+}
+function cargarCache(){
+  try{
+    if(!repartidorKey) return false;
+    var raw=localStorage.getItem('kigo_cache_'+repartidorKey);
+    if(!raw) return false;
+    var d=JSON.parse(raw);
+    if(!d || !d.ventas) return false;
+    ventasAll=d.ventas||[];
+    gastosAll=d.gastos||[];
+    initFiltroMes();
+    renderStats();
+    return true;
+  }catch(e){ return false; }
+}
 if(repartidorKey){
   db.ref(`repartidores/${repartidorKey}`).once('value', s=>{
     if(s.val()){ repartidorActual=s.val(); iniciar(); }
@@ -182,6 +210,7 @@ function iniciar(){
   document.getElementById('cambiarUsuario').placeholder='Usuario actual: '+(repartidorActual.usuario||'');
   if(repartidorActual.foto) document.getElementById('pAvatar').src=repartidorActual.foto;
   document.getElementById('gastoFecha').value=new Date().toISOString().slice(0,10);
+  cargarCache();
   cargarVentas();
   cargarGastos();
 }
@@ -207,14 +236,16 @@ function cargarVentas(){
       return {...v, _esTrans:esTrans, _tarifa:tarifa, _estado:estado, _precioCli:precioCliente, _fecha:fechaStr, _mes:mes, _ganancia:ganancia};
     });
     initFiltroMes();
-    renderStats();
+    guardarCache();
+    pedirRender();
   });
 }
 function cargarGastos(){
   db.ref(`gastos/${repartidorKey}`).on('value', snap=>{
     gastosRaw=snap.val()||{};
     gastosAll=Object.entries(gastosRaw).map(([id,g])=>({ id, ...g, _mes:(g.fecha||'').slice(0,7) || g.mes || '' }));
-    renderStats();
+    guardarCache();
+    pedirRender();
     renderListaGastos();
   });
 }
@@ -280,7 +311,7 @@ function renderStats(){
   document.getElementById('totalListaGastos').innerText=fmt(gastos);
   const tbody=document.getElementById('tablaMis'); tbody.innerHTML='';
   lista.sort((a,b)=> (b._fecha||'').localeCompare(a._fecha||'')).forEach(v=>{
-    tbody.innerHTML+=`<tr><td>${v._fecha}</td><td>${v._esTrans?'transporte':'mandado'}</td><td>${fmt(v._precioCli)}</td><td>${fmt(v._tarifa)}</td><td style="color:#111">${fmt(v._ganancia)}</td><td><span class="badge ${v._estado==='pagado'?'pagado':'pendiente'}">${v._estado.toUpperCase()}</span></td></tr>`;
+    tbody.innerHTML+=`<tr><td>${v._fecha}</td><td><span class="badge-servicio ${v._esTrans?'transporte':'mandado'}">${v._esTrans?'transporte':'mandado'}</span></td><td>${fmt(v._precioCli)}</td><td>${fmt(v._tarifa)}</td><td style="color:#111">${fmt(v._ganancia)}</td><td><span class="badge ${v._estado==='pagado'?'pagado':'pendiente'}">${v._estado.toUpperCase()}</span></td></tr>`;
   });
   renderListaGastos();
 }
