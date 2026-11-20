@@ -15,16 +15,23 @@ body{background:#f6f7f9}
 .top{max-width:1100px;margin:0 auto;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 .top-info{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
 .top-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.cards{max-width:1100px;margin:10px auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;padding:0 16px}
-.card{background:#fff;border:1px solid #eef0f3;border-radius:16px;padding:18px}
-.card b{font-size:24px;display:block;margin-top:6px}
+.filtro-bar{max-width:1100px;margin:0 auto;padding:0 16px;display:flex;align-items:center;gap:8px}
+.filtro-bar span{font-size:11px;font-weight:800;color:#6b7280}
+.filtro-bar select{height:36px;border:1px solid #e5e7eb;border-radius:10px;padding:0 12px;font-weight:800;font-size:12px;background:#fff}
+.btn-top{height:38px;padding:0 14px;border-radius:10px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap;text-decoration:none}
+.cards{max-width:1100px;margin:10px auto;display:flex;gap:10px;padding:0 16px 4px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.cards::-webkit-scrollbar{height:6px}
+.cards::-webkit-scrollbar-thumb{background:#e5e7eb;border-radius:99px}
+.card{background:#fff;border:1px solid #eef0f3;border-radius:16px;padding:16px;flex:0 0 auto;min-width:175px;scroll-snap-align:start}
+.card b{font-size:22px;display:block;margin-top:6px}
 .card small{color:#6b7280;font-size:11px;font-weight:800}
 .profile{max-width:1100px;margin:0 auto;padding:0 16px;display:grid;grid-template-columns:320px 1fr;gap:12px}
 @media(max-width:800px){.profile{grid-template-columns:1fr}}
 .avatar{width:90px;height:90px;border-radius:20px;background:#eee;object-fit:cover;flex-shrink:0}
-.table{width:100%;border-collapse:collapse;margin-top:12px}
-.table th{font-size:10px;color:#6b7280;text-align:left;padding:8px;border-bottom:1px solid #eef0f3}
-.table td{font-size:12px;padding:10px 8px;border-bottom:1px solid #f3f4f6;font-weight:700}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.table{width:100%;border-collapse:collapse;margin-top:12px;min-width:520px}
+.table th{font-size:10px;color:#6b7280;text-align:left;padding:8px;border-bottom:1px solid #eef0f3;white-space:nowrap}
+.table td{font-size:12px;padding:10px 8px;border-bottom:1px solid #f3f4f6;font-weight:700;white-space:nowrap}
 .badge{padding:4px 10px;border-radius:20px;font-size:10px;font-weight:800;display:inline-flex;align-items:center;gap:4px}
 .badge.pendiente{background:#fef3c7;color:#92400e}
 .badge.pagado{background:#dcfce7;color:#166534}
@@ -36,16 +43,16 @@ body{background:#f6f7f9}
 .modal.open{display:block;transform:translate(-50%,-50%) scale(1)}
 .gasto-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f3f4f6}
 .gasto-item:last-child{border:none}
-/* SOLO AJUSTE CELULAR - PANEL MAS COMPACTO Y ORGANIZADO */
 @media(max-width:600px){
   .top{padding:10px 12px;gap:10px}
   .top-info{gap:10px}
   .avatar{width:56px;height:56px;border-radius:14px}
   .top-actions{width:100%}
-  .top-actions select{flex:1;min-width:0}
-  .top-actions button{flex:1;justify-content:center;padding:0 10px;font-size:11px;white-space:nowrap}
-  .cards{grid-template-columns:1fr 1fr;gap:8px;padding:0 12px;margin:6px auto}
-  .card{padding:12px 10px;border-radius:14px}
+  .top-actions .btn-top{flex:1;justify-content:center;padding:0 10px;font-size:11px}
+  .filtro-bar{padding:0 12px}
+  .filtro-bar select{flex:1;min-width:0}
+  .cards{gap:8px;padding:0 12px 4px;margin:8px auto}
+  .card{padding:12px 10px;border-radius:14px;min-width:150px}
   .card b{font-size:18px;margin-top:4px}
   .card small{font-size:9.5px;line-height:1.3}
   .profile{padding:0 12px;gap:8px}
@@ -62,11 +69,13 @@ body{background:#f6f7f9}
     <div style="min-width:0"><b id="pNombre" style="font-size:18px">Cargando...</b><p style="font-size:11px;color:#6b7280" id="pMoto"></p><p style="font-size:11px;color:#6b7280" id="pUsuario"></p></div>
   </div>
   <div class="top-actions">
-    <select id="filtroMes" onchange="renderStats()" style="height:38px;border:1px solid #e5e7eb;border-radius:10px;padding:0 12px;font-weight:800;font-size:12px"><option value="todos">Todos los meses</option></select>
-    <button onclick="openConfig()" style="height:38px;padding:0 14px;border:1px solid #111;background:#111;color:#fff;border-radius:10px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px"><span class="material-icons" style="font-size:18px">settings</span> Configuración</button>
-    <button onclick="logout()" style="height:38px;padding:0 14px;border:1px solid #e5e7eb;background:#fff;border-radius:10px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px"><span class="material-icons">logout</span> Salir</button>
+    <button onclick="location.href='estadisticas.html'" class="btn-top" style="border:1px solid #E10600;background:#E10600;color:#fff"><span class="material-icons" style="font-size:18px">bar_chart</span> Estadísticas</button>
+    <button onclick="openConfig()" class="btn-top" style="border:1px solid #111;background:#111;color:#fff"><span class="material-icons" style="font-size:18px">settings</span> Configuración</button>
+    <button onclick="logout()" class="btn-top" style="border:1px solid #e5e7eb;background:#fff;color:#111"><span class="material-icons" style="font-size:18px">logout</span> Salir</button>
   </div>
 </div>
+
+<div class="filtro-bar"><span>Filtrar por mes:</span><select id="filtroMes" onchange="renderStats()"><option value="todos">Todos los meses</option></select><span style="color:#9ca3af">← Desliza las tarjetas →</span></div>
 
 <div class="cards">
   <div class="card" style="border-left:4px solid #f59e0b"><small>CUANTO DEBES</small><b id="debe" style="color:#d97706">$0</b><small id="debeDet">0 mandados / 0 transportes</small></div>
@@ -78,7 +87,7 @@ body{background:#f6f7f9}
 </div>
 
 <div class="profile">
-  <div class="card">
+  <div class="card" style="min-width:0;flex:1">
     <h3 style="font-size:13px;display:flex;align-items:center;gap:6px"><span class="material-icons">receipt_long</span> Ingresar Gasto</h3>
     <p style="font-size:10px;color:#6b7280;margin-top:4px">Ingresa fecha para ver ingresos reales por mes/semana.</p>
     <input id="gastoDesc" class="inp" placeholder="Descripción Ej: Gasolina">
@@ -86,7 +95,6 @@ body{background:#f6f7f9}
     <input id="gastoFecha" type="date" class="inp" placeholder="Fecha">
     <button onclick="guardarGasto()" class="btn" style="background:#111;color:#fff;margin-top:10px"><span class="material-icons" style="font-size:16px">save</span> Guardar Gasto</button>
     <p id="msgGasto" style="font-size:11px;color:#16a34a;margin-top:8px;display:none"></p>
-    
     <div style="margin-top:16px;border-top:1px solid #eef0f3;padding-top:12px">
       <h4 style="font-size:11px;font-weight:800;display:flex;align-items:center;gap:6px"><span class="material-icons" style="font-size:14px">list</span> LISTADO DE GASTOS</h4>
       <div id="listaGastos" style="margin-top:8px;max-height:260px;overflow:auto"></div>
@@ -95,9 +103,9 @@ body{background:#f6f7f9}
       </div>
     </div>
   </div>
-  <div class="card">
+  <div class="card" style="min-width:0;flex:1">
     <h3 style="font-size:13px;display:flex;align-items:center;gap:6px"><span class="material-icons">list_alt</span> Mis servicios por fecha</h3>
-    <table class="table"><thead><tr><th>Fecha</th><th>Servicio</th><th>Cliente $</th><th>Tarifa Kigo</th><th>Ganancia</th><th>Estado</th></tr></thead><tbody id="tablaMis"></tbody></table>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Fecha</th><th>Servicio</th><th>Cliente $</th><th>Tarifa Kigo</th><th>Ganancia</th><th>Estado</th></tr></thead><tbody id="tablaMis"></tbody></table></div>
   </div>
 </div>
 
@@ -108,7 +116,6 @@ body{background:#f6f7f9}
     <h3 style="font-size:14px;font-weight:800;display:flex;align-items:center;gap:6px"><span class="material-icons">settings</span> Configuración</h3>
     <button onclick="closeConfig()" style="width:28px;height:28px;border-radius:50%;border:1px solid #e5e7eb;background:#fff;cursor:pointer">✕</button>
   </div>
-
   <div style="padding:10px 0;border-bottom:1px solid #f3f4f6">
     <h4 style="font-size:12px;font-weight:800;display:flex;align-items:center;gap:6px"><span class="material-icons" style="font-size:16px">person</span> Mi perfil - Fotos</h4>
     <label style="font-size:11px;font-weight:800;margin-top:10px;display:block">Foto de perfil</label>
@@ -118,7 +125,6 @@ body{background:#f6f7f9}
     <input type="file" id="fileMoto" accept="image/*" style="font-size:11px;margin-top:6px">
     <button class="btn" style="background:#111;color:#fff;height:38px;margin-top:8px" onclick="subirFoto('fotoMoto')">Subir moto</button>
   </div>
-
   <div style="margin-top:14px">
     <h4 style="font-size:12px;font-weight:800;display:flex;align-items:center;gap:6px"><span class="material-icons" style="font-size:16px">lock</span> Cambiar usuario y contraseña</h4>
     <input id="cambiarUsuario" class="inp" placeholder="Nuevo usuario">
@@ -126,7 +132,6 @@ body{background:#f6f7f9}
     <button onclick="actualizarCredenciales()" class="btn" style="background:#111;color:#fff;margin-top:10px"><span class="material-icons" style="font-size:16px">save</span> Actualizar credenciales</button>
     <p id="msgCred" style="font-size:11px;color:#16a34a;margin-top:8px;display:none"></p>
   </div>
-
   <div style="margin-top:14px;padding:12px;background:#f9fafb;border-radius:12px">
     <p style="font-size:11px;font-weight:800">Tarifa: Mandado $5 / Transporte $10</p>
     <p style="font-size:11px;color:#6b7280;margin-top:4px" id="pEstado">Estado: Activo</p>
@@ -140,16 +145,13 @@ const firebaseConfig = { apiKey: "AIzaSyAsRa2QW9-l3vuh_mWa0ZhJh6ZSPNRRIkM", auth
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 const storage=firebase.storage();
-
 let repartidorActual=null;
 let repartidorKey=localStorage.getItem('kigo_repa_key');
 let repartidorNombre=localStorage.getItem('kigo_repa_nombre');
-
 if(!repartidorKey &&!repartidorNombre){
   alert('Debes iniciar sesión desde el login');
   window.location.href='index.html';
 }
-
 if(repartidorKey){
   db.ref(`repartidores/${repartidorKey}`).once('value', s=>{
     if(s.val()){ repartidorActual=s.val(); iniciar(); }
@@ -158,7 +160,6 @@ if(repartidorKey){
 } else {
   buscarPorNombre();
 }
-
 function buscarPorNombre(){
   db.ref('repartidores').once('value', snap=>{
     const data=snap.val()||{};
@@ -171,10 +172,8 @@ function buscarPorNombre(){
     if(repartidorActual) iniciar();
   });
 }
-
 function openConfig(){ document.getElementById('modalConfig').classList.add('open'); document.getElementById('modalBg').classList.add('open'); }
 function closeConfig(){ document.getElementById('modalConfig').classList.remove('open'); document.getElementById('modalBg').classList.remove('open'); }
-
 function iniciar(){
   document.getElementById('pNombre').innerText=repartidorActual.nombre||'Repartidor';
   document.getElementById('pMoto').innerText=repartidorActual.moto||'';
@@ -186,7 +185,6 @@ function iniciar(){
   cargarVentas();
   cargarGastos();
 }
-
 let ventasAll=[];
 let gastosAll=[];
 let gastosRaw={};
@@ -212,7 +210,6 @@ function cargarVentas(){
     renderStats();
   });
 }
-
 function cargarGastos(){
   db.ref(`gastos/${repartidorKey}`).on('value', snap=>{
     gastosRaw=snap.val()||{};
@@ -221,8 +218,6 @@ function cargarGastos(){
     renderListaGastos();
   });
 }
-
-// NUEVO - FORMATO AÑO + NOMBRE MES: 2026-01 -> 2026 - Enero
 const MESES_NOMBRE = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 function formatoMesAnio(mesKey){
   if(!mesKey || mesKey==='todos') return 'Todos los meses';
@@ -242,7 +237,6 @@ function formatoMesAnioCorto(mesKey){
   const nombre = MESES_NOMBRE[mesNum-1] || partes[1];
   return nombre + ' ' + anio;
 }
-
 function initFiltroMes(){
   const meses=[...new Set([...ventasAll.map(v=>v._mes), ...gastosAll.map(g=>g._mes)])].filter(Boolean).sort().reverse();
   const sel=document.getElementById('filtroMes');
@@ -255,9 +249,7 @@ function initFiltroMes(){
   });
   if(actual) sel.value=actual;
 }
-
 function fmt(n){ return '$'+Number(n).toLocaleString('es-MX'); }
-
 function renderStats(){
   const mesSel=document.getElementById('filtroMes').value;
   let lista=ventasAll;
@@ -266,19 +258,15 @@ function renderStats(){
     lista=ventasAll.filter(v=>v._mes===mesSel);
     listaG=gastosAll.filter(g=>g._mes===mesSel || g.mes===mesSel);
   }
-
   let debe=0, pagado=0, mandados=0, transportes=0, ingresos=0;
   lista.forEach(v=>{
     ingresos+=v._ganancia;
     if(v._estado==='debe'){ debe+=v._tarifa; if(v._esTrans) transportes++; else mandados++; }
     else if(v._estado==='pagado'){ pagado+=v._tarifa; }
   });
-
   let gastos=0;
   listaG.forEach(g=> gastos+=parseFloat(g.monto||0));
-
   let totalFinal = ingresos - gastos;
-
   document.getElementById('debe').innerText=fmt(debe);
   document.getElementById('debeDet').innerText=mandados+' mandados x $5 / '+transportes+' transportes x $10';
   document.getElementById('pagado').innerText=fmt(pagado);
@@ -290,14 +278,12 @@ function renderStats(){
   document.getElementById('totalFinal').innerText=fmt(totalFinal);
   document.getElementById('pIngMes').innerText='Ingresos mes ('+formatoMesAnioCorto(mesSel)+'): '+fmt(ingresos)+' - Gastos '+fmt(gastos)+' = '+fmt(totalFinal);
   document.getElementById('totalListaGastos').innerText=fmt(gastos);
-
   const tbody=document.getElementById('tablaMis'); tbody.innerHTML='';
   lista.sort((a,b)=> (b._fecha||'').localeCompare(a._fecha||'')).forEach(v=>{
     tbody.innerHTML+=`<tr><td>${v._fecha}</td><td>${v._esTrans?'transporte':'mandado'}</td><td>${fmt(v._precioCli)}</td><td>${fmt(v._tarifa)}</td><td style="color:#111">${fmt(v._ganancia)}</td><td><span class="badge ${v._estado==='pagado'?'pagado':'pendiente'}">${v._estado.toUpperCase()}</span></td></tr>`;
   });
   renderListaGastos();
 }
-
 function renderListaGastos(){
   const mesSel=document.getElementById('filtroMes').value;
   let listaG=gastosAll;
@@ -312,7 +298,6 @@ function renderListaGastos(){
     </div>
   `).join('');
 }
-
 function guardarGasto(){
   const desc=document.getElementById('gastoDesc').value.trim();
   const monto=parseFloat(document.getElementById('gastoMonto').value);
@@ -326,12 +311,10 @@ function guardarGasto(){
     setTimeout(()=>m.style.display='none',2000);
   });
 }
-
 function eliminarGasto(id){
   if(!confirm('¿Eliminar este gasto?')) return;
   db.ref(`gastos/${repartidorKey}/${id}`).remove();
 }
-
 function subirFoto(campo){
   const inputId = campo==='foto'? 'filePerfil' : 'fileMoto';
   const file=document.getElementById(inputId).files[0];
@@ -341,7 +324,6 @@ function subirFoto(campo){
     return db.ref(`repartidores/${repartidorKey}/${campo}`).set(url);
   }).then(()=>{ alert('Foto actualizada'); location.reload(); });
 }
-
 function actualizarCredenciales(){
   const nuevoUser=document.getElementById('cambiarUsuario').value.trim();
   const nuevaPass=document.getElementById('cambiarPass').value.trim();
@@ -360,7 +342,6 @@ function actualizarCredenciales(){
     document.getElementById('cambiarPass').value='';
   });
 }
-
 function pagarWA(){
   const debe=document.getElementById('debe').innerText;
   const det=document.getElementById('debeDet').innerText;
@@ -372,7 +353,6 @@ function pagarWA(){
   const msg=`Hola Kigo, soy ${repartidorActual.nombre}. Mes: ${mesTexto}. Deuda ${debe} - ${det}. Ingresos: ${ing}, Gastos: ${gastos}, Me queda: ${total}.`;
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,'_blank');
 }
-
 function logout(){
   localStorage.removeItem('kigo_repa_key');
   localStorage.removeItem('kigo_repa_nombre');
