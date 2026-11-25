@@ -161,6 +161,29 @@ if(!repartidorKey &&!repartidorNombre){
   alert('Debes iniciar sesión desde el login');
   window.location.href='index.html';
 }
+// SOLO CORREGIDO - ANTES: usaba rep.includes(nombre) y eso mezclaba repartidores con nombres parecidos.
+// AHORA: solo es mio si coincide EXACTO con mi nombre, mi usuario o mi llave. Sin includes.
+function normalizarRep(t){ return String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/[_-]+/g,' ').replace(/\s+/g,' '); }
+function misClavesRep(){
+  const s = new Set();
+  [repartidorKey, repartidorNombre, repartidorActual && repartidorActual.nombre, repartidorActual && repartidorActual.usuario].forEach(v=>{ const n = normalizarRep(v); if(n) s.add(n); });
+  return s;
+}
+function esMiVenta(v){
+  if(!v) return false;
+  const mis = misClavesRep();
+  if(!mis.size) return false;
+  const candidatos = [];
+  const rep = v.repartidor;
+  if(rep && typeof rep === 'object'){ candidatos.push(rep.id, rep.key, rep.usuario, rep.nombre, rep.nombreRepartidor); }
+  else { candidatos.push(rep); }
+  candidatos.push(v.nombreRepartidor, v.repartidorNombre, v.repartidorUsuario, v.repartidorId, v.repartidor_id, v.repartidorKey, v.usuario, v.usuarioRepartidor);
+  for(let c of candidatos){
+    const n = normalizarRep(c);
+    if(n && mis.has(n)) return true;
+  }
+  return false;
+}
 let renderTimer=null;
 function pedirRender(){
   if(renderTimer) clearTimeout(renderTimer);
@@ -178,7 +201,8 @@ function cargarCache(){
     if(!raw) return false;
     var d=JSON.parse(raw);
     if(!d || !d.ventas) return false;
-    ventasAll=d.ventas||[];
+    // SOLO CORREGIDO - El cache tambien se vuelve a filtrar, por si antes quedo guardado mezclado
+    ventasAll=(d.ventas||[]).filter(esMiVenta);
     gastosAll=d.gastos||[];
     initFiltroMes();
     renderStats();
@@ -222,7 +246,6 @@ function iniciar(){
 let ventasAll=[];
 let gastosAll=[];
 let gastosRaw={};
-// PAGINACION - 50 servicios por pagina
 let paginaActual=1;
 const POR_PAGINA=50;
 let listaFiltradaActual=[];
@@ -256,11 +279,7 @@ function renderTablaServicios(){
 function cargarVentas(){
   db.ref('ventas').on('value', snap=>{
     const data=snap.val()||{};
-    const nombre=(repartidorActual.nombre||'').toLowerCase();
-    ventasAll=Object.values(data).filter(v=>{
-      const rep=(v.repartidor||v.nombreRepartidor||'').toLowerCase();
-      return rep===nombre || rep.includes(nombre);
-    }).map(v=>{
+    ventasAll=Object.values(data).filter(esMiVenta).map(v=>{
       let raw=(v.tipoServicio||v.servicio||v.tipo||'').toString().toLowerCase();
       let esTrans=raw.includes('trans');
       let tarifa=esTrans?10:5;
